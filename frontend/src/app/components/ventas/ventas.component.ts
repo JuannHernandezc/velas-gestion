@@ -50,7 +50,7 @@ import { AuthService } from '../../services/auth.service';
       </div>
 
       <!-- Tab 1: Kanban Board -->
-      <div *ngIf="viewMode === 'kanban'" class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+      <div *ngIf="viewMode === 'kanban'" class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
         <!-- Column 1: Por Fabricar -->
         <div class="bg-stone-100/80 border border-stone-200/60 rounded-xl p-4 flex flex-col min-h-[500px]">
           <div class="flex justify-between items-center pb-3 border-b border-stone-200">
@@ -145,48 +145,6 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div *ngIf="getPedidosByEstado('EN_EMPAQUE').length === 0" class="text-center py-12 text-stone-400 text-xs">
               <i class="fa-solid fa-box-open text-stone-300 text-2xl mb-1.5 block"></i> Ningún pedido en empaque
-            </div>
-          </div>
-        </div>
-
-        <!-- Column 3: Entregado -->
-        <div class="bg-stone-100/80 border border-stone-200/60 rounded-xl p-4 flex flex-col min-h-[500px]">
-          <div class="flex justify-between items-center pb-3 border-b border-stone-200">
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-              <i class="fa-solid fa-circle-check text-xs"></i>
-              Entregado
-            </span>
-            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {{ getPedidosByEstado('ENTREGADO').length }}
-            </span>
-          </div>
-          <div class="flex-1 mt-4 space-y-3 overflow-y-auto max-h-[600px] pr-1">
-            <div *ngFor="let ped of getPedidosByEstado('ENTREGADO')" class="bg-white border border-stone-200 rounded-xl p-4 shadow-sm hover:border-emerald-300 transition-all space-y-3 relative group">
-              <div class="flex justify-between items-start gap-1">
-                <div>
-                  <span class="text-stone-400 font-mono text-[10px]">{{ formatId(ped.id) }}</span>
-                  <h4 class="font-bold text-stone-800 text-sm tracking-tight leading-snug">{{ ped.cliente }}</h4>
-                </div>
-                <button *ngIf="isAdmin" (click)="deletePedido(ped.id)" class="text-stone-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer p-0.5"><i class="fa-solid fa-trash-can text-xs"></i></button>
-              </div>
-              <div class="flex justify-between items-center text-xs">
-                <span class="inline-flex items-center gap-1 text-stone-500">
-                  <i [class]="getChannelIcon(ped.canal)"></i>
-                  <span class="capitalize text-[11px]">{{ ped.canal | lowercase }}</span>
-                </span>
-                <span class="font-semibold text-stone-700" *ngIf="isAdmin">
-                  {{ ped.total | currency:'COP':'symbol-narrow':'1.0-0' }}
-                </span>
-              </div>
-              <button 
-                (click)="updateEstado(ped.id, 'EN_EMPAQUE')"
-                class="w-full bg-stone-50 hover:bg-stone-100 text-stone-600 font-semibold py-1.5 rounded-lg text-[10px] border border-stone-200 transition-colors cursor-pointer"
-              >
-                <i class="fa-solid fa-arrow-left text-[9px]"></i> Deshacer entrega
-              </button>
-            </div>
-            <div *ngIf="getPedidosByEstado('ENTREGADO').length === 0" class="text-center py-12 text-stone-400 text-xs">
-              <i class="fa-solid fa-truck-ramp-box text-stone-300 text-2xl mb-1.5 block"></i> No hay entregados hoy
             </div>
           </div>
         </div>
@@ -418,6 +376,17 @@ import { AuthService } from '../../services/auth.service';
               <p class="flex justify-between text-sm"><span class="text-stone-800 font-bold">Ingreso Neto:</span> <span class="text-stone-900 font-bold">{{ selectedPed?.total | currency:'COP':'symbol-narrow':'1.0-0' }}</span></p>
               <p class="flex justify-between text-emerald-700 font-semibold pt-1 border-t border-dashed border-stone-150"><span class="font-bold">Ganancia Neta (Rentabilidad):</span> <span class="font-bold">{{ selectedPed?.rentabilidad | currency:'COP':'symbol-narrow':'1.0-0' }}</span></p>
             </div>
+
+            <!-- Action to change status in details modal if delivered -->
+            <div *ngIf="selectedPed?.estado === 'ENTREGADO'" class="pt-3 border-t border-stone-100">
+              <button 
+                (click)="updateEstadoFromDetails(selectedPed.id, 'EN_EMPAQUE')"
+                class="w-full bg-stone-50 hover:bg-stone-100 text-stone-600 font-semibold py-2 rounded-lg text-xs border border-stone-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <i class="fa-solid fa-arrow-left text-[10px]"></i>
+                <span>Deshacer Entrega (Regresar a En Empaque)</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -610,6 +579,11 @@ export class VentasComponent implements OnInit {
   closeDetailsModal(): void {
     this.isDetailsModalOpen = false;
     this.selectedPed = null;
+  }
+
+  updateEstadoFromDetails(id: number, nuevoEstado: string): void {
+    this.updateEstado(id, nuevoEstado);
+    this.closeDetailsModal();
   }
 
   formatId(id: number): string {

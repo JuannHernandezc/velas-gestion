@@ -849,6 +849,7 @@ export class FabricacionComponent implements OnInit {
       }));
     const payload = {
       ...this.prodForm,
+      imagenUrl: this.convertDriveUrl(this.prodForm.imagenUrl),
       ensambles: this.prodForm.requiereEnsamble ? validEns : []
     };
 
@@ -921,5 +922,24 @@ export class FabricacionComponent implements OnInit {
 
   applySuggestedPrice(price: number): void {
     this.prodForm.precioVenta = Math.round(price);
+  }
+
+  convertDriveUrl(url: string): string {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (trimmed.includes('drive.google.com')) {
+      let fileId = '';
+      const matchD = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+      if (matchD && matchD[1]) {
+        fileId = matchD[1];
+      } else if (matchId && matchId[1]) {
+        fileId = matchId[1];
+      }
+      if (fileId) {
+        return `https://lh3.googleusercontent.com/d/${fileId}`;
+      }
+    }
+    return trimmed;
   }
 }
