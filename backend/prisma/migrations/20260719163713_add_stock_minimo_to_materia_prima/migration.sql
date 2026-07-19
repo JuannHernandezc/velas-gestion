@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "MateriaPrima" ADD COLUMN     "stockMinimo" DOUBLE PRECISION NOT NULL DEFAULT 10;

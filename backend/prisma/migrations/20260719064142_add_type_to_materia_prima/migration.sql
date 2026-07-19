@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "MateriaPrima" ADD COLUMN     "tipo" TEXT NOT NULL DEFAULT 'INSUMO_GENERAL';

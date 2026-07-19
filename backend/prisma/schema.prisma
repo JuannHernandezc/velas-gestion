@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  nombre    String
+  rol       String   // "ADMIN" | "OPERATIVO"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MateriaPrima {
+  id            Int                @id @default(autoincrement())
+  nombre        String             @unique
+  tipo          String             @default("INSUMO_GENERAL") // "CERA" | "ESENCIA" | "ADITIVO" | "PABILO" | "MOLDE" | "DECORACION" | "INSUMO_GENERAL"
+  unidadMedida  String             // "GR" | "ML" | "CM" | "UNIDAD" | "MOLDE" | "DECORACION"
+  costoUnitario Float              // Costo real por unidad
+  stockActual   Float              // Cantidad en inventario
+  stockMinimo   Float              @default(10) // Umbral personalizado de stock bajo
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  recetas       RecetaComponente[]
+}
+
+model ComponenteBase {
+  id              Int                 @id @default(autoincrement())
+  nombre          String              @unique
+  costoProduccion Float               // Costo calculado (suma de materias primas)
+  stockDisponible Float               // Cantidad en inventario
+  pesoAgua        Float?
+  tipoVela        String?
+  porcentajeEsencia Float?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  recetaMaterias  RecetaComponente[]
+  ensambles       EstructuraEnsamble[]
+}
+
+model RecetaComponente {
+  id                Int            @id @default(autoincrement())
+  componenteBaseId  Int
+  componenteBase    ComponenteBase @relation(fields: [componenteBaseId], references: [id], onDelete: Cascade)
+  materiaPrimaId    Int
+  materiaPrima      MateriaPrima   @relation(fields: [materiaPrimaId], references: [id], onDelete: Restrict)
+  cantidadNecesaria Float          // Cantidad requerida en la unidadMedida de la MateriaPrima
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@unique([componenteBaseId, materiaPrimaId])
+}
+
+model CatalogoProducto {
+  id               Int                  @id @default(autoincrement())
+  nombre           String               @unique
+  precioVenta      Float
+  requiereEnsamble Boolean              @default(false)
+  imagenUrl        String?              // Galería visual
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  ensambles        EstructuraEnsamble[]
+  detallesPedido   DetallePedido[]
+}
+
+model EstructuraEnsamble {
+  id                 Int              @id @default(autoincrement())
+  catalogoProductoId Int
+  catalogoProducto   CatalogoProducto @relation(fields: [catalogoProductoId], references: [id], onDelete: Cascade)
+  componenteBaseId   Int
+  componenteBase     ComponenteBase   @relation(fields: [componenteBaseId], references: [id], onDelete: Restrict)
+  cantidadNecesaria  Float            // Cantidad de componentes base requeridos
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([catalogoProductoId, componenteBaseId])
+}
+
+model Pedido {
+  id           Int             @id @default(autoincrement())
+  cliente      String
+  fecha        DateTime        @default(now())
+  canal        String          // "WHATSAPP" | "INSTAGRAM" | "TIKTOK" | "OTRO"
+  estado       String          // "POR_FABRICAR" | "EN_EMPAQUE" | "ENTREGADO"
+  total        Float           // Suma de precioUnitario * cantidad
+  costoTotal   Float           // Suma de costoUnitario * cantidad (rentabilidad)
+  rentabilidad Float           // total - costoTotal
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  detalles     DetallePedido[]
+}
+
+model DetallePedido {
+  id                 Int              @id @default(autoincrement())
+  pedidoId           Int
+  pedido             Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  catalogoProductoId Int
+  catalogoProducto   CatalogoProducto @relation(fields: [catalogoProductoId], references: [id], onDelete: Restrict)
+  cantidad           Int
+  precioUnitario     Float            // Precio al momento de la venta
+  costoUnitario      Float            // Costo de fabricación al momento de la venta
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([pedidoId, catalogoProductoId])
+}

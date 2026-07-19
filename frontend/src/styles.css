@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-light: #DCBC88;
+  --color-brand-primary: #D3A463;
+  --color-brand-dark: #775128;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #fafaf9; /* Fondo claro premium */
+  color: #1c1917; /* Texto principal oscuro */
+}
+
+/* Scrollbar premium y delgada */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d3a46340;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d3a46380;
+}
