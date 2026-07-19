@@ -136,6 +136,7 @@ import { AuthService } from '../../services/auth.service';
               <img 
                 *ngIf="prod.imagenUrl" 
                 [src]="getDisplayImageUrl(prod.imagenUrl)" 
+                (error)="onImageError($event)"
                 alt="Imagen de vela" 
                 class="w-full h-full object-cover"
               />
@@ -966,5 +967,9 @@ export class FabricacionComponent implements OnInit {
       }
     }
     return trimmed;
+  }
+
+  onImageError(event: any): void {
+    event.target.src = 'https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=400&q=80';
   }
 }
