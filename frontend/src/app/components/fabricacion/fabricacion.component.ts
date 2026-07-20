@@ -135,8 +135,7 @@ import { AuthService } from '../../services/auth.service';
             <div class="h-44 bg-stone-100 relative overflow-hidden flex items-center justify-center">
               <img 
                 *ngIf="prod.imagenUrl" 
-                [src]="getDisplayImageUrl(prod.imagenUrl)" 
-                (error)="onImageError($event)"
+                [src]="prod.imagenUrl" 
                 alt="Imagen de vela" 
                 class="w-full h-full object-cover"
               />
@@ -850,7 +849,6 @@ export class FabricacionComponent implements OnInit {
       }));
     const payload = {
       ...this.prodForm,
-      imagenUrl: this.convertDriveUrl(this.prodForm.imagenUrl),
       ensambles: this.prodForm.requiereEnsamble ? validEns : []
     };
 
@@ -923,53 +921,5 @@ export class FabricacionComponent implements OnInit {
 
   applySuggestedPrice(price: number): void {
     this.prodForm.precioVenta = Math.round(price);
-  }
-
-  convertDriveUrl(url: string): string {
-    if (!url) return '';
-    const trimmed = url.trim();
-    if (trimmed.includes('drive.google.com')) {
-      let fileId = '';
-      const matchD = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
-      if (matchD && matchD[1]) {
-        fileId = matchD[1];
-      } else if (matchId && matchId[1]) {
-        fileId = matchId[1];
-      }
-      if (fileId) {
-        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
-      }
-    }
-    return trimmed;
-  }
-
-  getDisplayImageUrl(url: string): string {
-    if (!url) return '';
-    const trimmed = url.trim();
-    if (trimmed.includes('drive.google.com')) {
-      let fileId = '';
-      const matchD = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
-      if (matchD && matchD[1]) {
-        fileId = matchD[1];
-      } else if (matchId && matchId[1]) {
-        fileId = matchId[1];
-      }
-      if (fileId) {
-        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
-      }
-    }
-    if (trimmed.includes('googleusercontent.com/d/')) {
-      const matchD = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      if (matchD && matchD[1]) {
-        return `https://drive.google.com/thumbnail?id=${matchD[1]}&sz=w800`;
-      }
-    }
-    return trimmed;
-  }
-
-  onImageError(event: any): void {
-    event.target.src = 'https://images.unsplash.com/photo-1603006905003-be475563bc59?auto=format&fit=crop&w=400&q=80';
   }
 }
