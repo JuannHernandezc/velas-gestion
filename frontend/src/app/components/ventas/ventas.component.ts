@@ -69,7 +69,10 @@ import { AuthService } from '../../services/auth.service';
                   <span class="text-stone-400 font-mono text-[10px]">{{ formatId(ped.id) }}</span>
                   <h4 class="font-bold text-stone-800 text-sm tracking-tight leading-snug">{{ ped.cliente }}</h4>
                 </div>
-                <button *ngIf="isAdmin" (click)="deletePedido(ped.id)" class="text-stone-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer p-0.5"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button (click)="openReceiptModal(ped)" class="text-stone-400 hover:text-stone-700 cursor-pointer p-0.5" title="Ver Recibo de Cliente"><i class="fa-solid fa-receipt text-xs"></i></button>
+                  <button *ngIf="isAdmin" (click)="deletePedido(ped.id)" class="text-stone-400 hover:text-red-500 cursor-pointer p-0.5" title="Eliminar"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                </div>
               </div>
               <div class="flex justify-between items-center text-xs">
                 <span class="inline-flex items-center gap-1 text-stone-500">
@@ -114,7 +117,10 @@ import { AuthService } from '../../services/auth.service';
                   <span class="text-stone-400 font-mono text-[10px]">{{ formatId(ped.id) }}</span>
                   <h4 class="font-bold text-stone-800 text-sm tracking-tight leading-snug">{{ ped.cliente }}</h4>
                 </div>
-                <button *ngIf="isAdmin" (click)="deletePedido(ped.id)" class="text-stone-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer p-0.5"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                <div class="flex gap-1 items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button (click)="openReceiptModal(ped)" class="text-stone-400 hover:text-stone-700 cursor-pointer p-0.5" title="Ver Recibo de Cliente"><i class="fa-solid fa-receipt text-xs"></i></button>
+                  <button *ngIf="isAdmin" (click)="deletePedido(ped.id)" class="text-stone-400 hover:text-red-500 cursor-pointer p-0.5" title="Eliminar"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                </div>
               </div>
               <div class="flex justify-between items-center text-xs">
                 <span class="inline-flex items-center gap-1 text-stone-500">
@@ -210,6 +216,13 @@ import { AuthService } from '../../services/auth.service';
                       title="Ver Detalles"
                     >
                       <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    <button 
+                      (click)="openReceiptModal(ped)"
+                      class="p-1.5 text-stone-400 hover:text-stone-800 rounded-lg transition-colors cursor-pointer"
+                      title="Generar Recibo de Venta (Cliente)"
+                    >
+                      <i class="fa-solid fa-file-invoice text-sm"></i>
                     </button>
                     <button 
                       *ngIf="isAdmin"
@@ -387,6 +400,95 @@ import { AuthService } from '../../services/auth.service';
                 <span>Deshacer Entrega (Regresar a En Empaque)</span>
               </button>
             </div>
+
+            <!-- Receipt Button in Details Modal -->
+            <div class="pt-3 border-t border-stone-100" *ngIf="selectedPed">
+              <button 
+                (click)="openReceiptModalFromDetails(selectedPed)"
+                class="w-full bg-brand-primary text-stone-950 font-bold py-2 rounded-lg text-xs hover:shadow-md hover:bg-brand-light transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <i class="fa-solid fa-receipt text-[10px]"></i>
+                <span>Generar Recibo de Venta (Cliente)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal 3: Client Receipt (Ticket Layout) -->
+      <div *ngIf="isReceiptModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm">
+        <div class="w-full max-w-sm bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-zoom-in flex flex-col">
+          <!-- Modal Header / Actions -->
+          <div class="px-6 py-3 border-b border-stone-100 flex justify-between items-center bg-stone-50 shrink-0">
+            <span class="text-xs font-bold text-stone-400 uppercase tracking-wider">Recibo de Venta</span>
+            <button (click)="closeReceiptModal()" class="text-stone-400 hover:text-stone-600 cursor-pointer p-1"><i class="fa-solid fa-xmark text-base"></i></button>
+          </div>
+
+          <!-- Ticket Body (Screenshot optimized) -->
+          <div class="p-6 bg-white space-y-6 text-stone-850" id="client-ticket">
+            <!-- AuraSolar Brand Header -->
+            <div class="text-center space-y-1">
+              <div class="inline-flex w-10 h-10 rounded-full bg-brand-primary items-center justify-center mb-1">
+                <i class="fa-solid fa-fire text-stone-950 text-base"></i>
+              </div>
+              <h2 class="font-bold text-lg tracking-wide text-stone-900 leading-none">AuraSolar</h2>
+              <p class="text-[10px] text-stone-500 uppercase tracking-widest font-semibold">Velas Premium & Decorativas</p>
+              <p class="text-[10px] text-stone-400">Hechas a mano con amor ✨</p>
+            </div>
+
+            <!-- Receipt Metadata -->
+            <div class="border-y border-dashed border-stone-200 py-3 text-xs space-y-1 font-mono">
+              <div class="flex justify-between">
+                <span class="text-stone-400">RECIBO:</span>
+                <span class="font-bold text-stone-900">{{ formatId(receiptPed?.id) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-stone-400">FECHA:</span>
+                <span class="text-stone-750">{{ receiptPed?.fecha | date:'dd/MM/yyyy, h:mm a' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-stone-400">CLIENTE:</span>
+                <span class="font-bold text-stone-900 uppercase">{{ receiptPed?.cliente }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-stone-400">MEDIO:</span>
+                <span class="text-stone-750 capitalize">{{ receiptPed?.canal | lowercase }}</span>
+              </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="space-y-3">
+              <div class="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Detalle del Pedido</div>
+              <div class="space-y-2 text-xs">
+                <div *ngFor="let det of receiptPed?.detalles" class="flex justify-between items-start gap-4">
+                  <div class="space-y-0.5">
+                    <p class="font-bold text-stone-900 leading-snug">{{ det.catalogoProducto?.nombre }}</p>
+                    <p class="text-[10px] text-stone-400">{{ det.cantidad }} x {{ det.precioUnitario | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
+                  </div>
+                  <span class="font-semibold text-stone-850 tabular-nums font-mono shrink-0">
+                    {{ det.cantidad * det.precioUnitario | currency:'COP':'symbol-narrow':'1.0-0' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-dashed border-stone-250 pt-4">
+              <div class="flex justify-between items-center text-stone-900">
+                <span class="font-bold text-xs uppercase tracking-wider">Total a Pagar</span>
+                <span class="text-xl font-black font-mono tabular-nums text-brand-dark">
+                  {{ receiptPed?.total | currency:'COP':'symbol-narrow':'1.0-0' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Footer Note -->
+            <div class="text-center pt-4 border-t border-stone-100">
+              <p class="text-[10px] text-stone-500 leading-relaxed">
+                ¡Gracias por apoyar nuestro emprendimiento! 🕯️<br>
+                Cada vela ilumina con amor.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -434,6 +536,10 @@ export class VentasComponent implements OnInit {
   // Details Modal
   isDetailsModalOpen = false;
   selectedPed: any = null;
+
+  // Receipt Modal
+  isReceiptModalOpen = false;
+  receiptPed: any = null;
 
   constructor(private http: HttpClient, private authService: AuthService) {
     this.isAdmin = this.authService.isAdmin();
@@ -579,6 +685,22 @@ export class VentasComponent implements OnInit {
   closeDetailsModal(): void {
     this.isDetailsModalOpen = false;
     this.selectedPed = null;
+  }
+
+  openReceiptModal(ped: any): void {
+    this.receiptPed = ped;
+    this.isReceiptModalOpen = true;
+  }
+
+  openReceiptModalFromDetails(ped: any): void {
+    this.receiptPed = ped;
+    this.isReceiptModalOpen = true;
+    this.closeDetailsModal();
+  }
+
+  closeReceiptModal(): void {
+    this.isReceiptModalOpen = false;
+    this.receiptPed = null;
   }
 
   updateEstadoFromDetails(id: number, nuevoEstado: string): void {

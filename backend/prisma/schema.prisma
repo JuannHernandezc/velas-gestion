@@ -109,3 +109,16 @@ model DetallePedido {
 
   @@unique([pedidoId, catalogoProductoId])
 }
+
+model Factura {
+  id            Int      @id @default(autoincrement())
+  numeroFactura String?
+  proveedor     String
+  fecha         DateTime @default(now())
+  montoTotal    Float
+  categoria     String   // Ej: "MATERIA_PRIMA", "HERRAMIENTAS_MOLDES", "SERVICIOS", "PUBLICIDAD", "OTROS"
+  comprador     String   // Persona que realizó la compra
+  descripcion   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

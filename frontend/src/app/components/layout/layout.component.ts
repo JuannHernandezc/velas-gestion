@@ -82,6 +82,15 @@ import { AuthService } from '../../services/auth.service';
               <i class="fa-solid fa-cart-shopping w-5 text-center"></i>
               <span>Ventas e Historial</span>
             </a>
+
+            <a 
+              routerLink="/contabilidad" 
+              routerLinkActive="bg-brand-primary/10 text-brand-primary border-l-2 border-brand-primary" 
+              class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 transition-colors"
+            >
+              <i class="fa-solid fa-wallet w-5 text-center"></i>
+              <span>Contabilidad</span>
+            </a>
           </nav>
         </div>
 

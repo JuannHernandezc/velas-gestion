@@ -7,6 +7,7 @@ import { MateriaPrimaModule } from './materia-prima/materia-prima.module';
 import { ComponenteBaseModule } from './componente-base/componente-base.module';
 import { CatalogoModule } from './catalogo/catalogo.module';
 import { PedidoModule } from './pedido/pedido.module';
+import { FacturaModule } from './factura/factura.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PedidoModule } from './pedido/pedido.module';
     ComponenteBaseModule,
     CatalogoModule,
     PedidoModule,
+    FacturaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
