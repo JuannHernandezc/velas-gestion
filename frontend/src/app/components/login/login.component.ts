@@ -80,7 +80,7 @@ import { AuthService } from '../../services/auth.service';
         </form>
 
         <!-- Credentials Helper Info for User -->
-        <div class="mt-8 pt-6 border-t border-stone-800/60 text-center">
+        <div *ngIf="isLocal" class="mt-8 pt-6 border-t border-stone-800/60 text-center">
           <p class="text-stone-500 text-xs">Cuentas de prueba:</p>
           <div class="flex justify-center gap-4 mt-2 text-stone-400 text-xs">
             <div>
@@ -100,8 +100,10 @@ export class LoginComponent {
   credentials = { username: '', password: '' };
   errorMsg = '';
   loading = false;
+  isLocal = false;
 
   constructor(private authService: AuthService, private router: Router) {
+    this.isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (this.authService.isAuthenticated()) {
       this.router.navigate(['/']);
     }
