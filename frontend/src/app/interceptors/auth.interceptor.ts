@@ -1,7 +1,7 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 
 // Cambia esta URL por la que te asigne Railway para tu backend:
-const PRODUCTION_BACKEND_URL = 'velas-gestion-backend-production.up.railway.app';
+const PRODUCTION_BACKEND_URL = 'https://velas-gestion-backend-production.up.railway.app';
 
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
