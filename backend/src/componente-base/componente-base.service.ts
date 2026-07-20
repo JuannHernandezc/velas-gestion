@@ -29,7 +29,7 @@ export class ComponenteBaseService {
           },
         },
       },
-      orderBy: { nombre: 'asc' },
+      orderBy: { id: 'asc' },
     });
 
     if (rolUser === 'OPERATIVO') {

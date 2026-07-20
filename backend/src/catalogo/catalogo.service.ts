@@ -15,7 +15,7 @@ export class CatalogoService {
           },
         },
       },
-      orderBy: { nombre: 'asc' },
+      orderBy: { id: 'asc' },
     });
 
     if (rolUser === 'OPERATIVO') {

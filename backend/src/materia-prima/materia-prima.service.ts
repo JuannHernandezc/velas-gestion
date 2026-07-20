@@ -8,7 +8,7 @@ export class MateriaPrimaService {
 
   async findAll(rolUser: string) {
     const list = await this.prisma.materiaPrima.findMany({
-      orderBy: { nombre: 'asc' },
+      orderBy: { id: 'asc' },
     });
 
     if (rolUser === 'OPERATIVO') {
