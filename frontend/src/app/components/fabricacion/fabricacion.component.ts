@@ -302,10 +302,9 @@ import { AuthService } from '../../services/auth.service';
                         name="moldAditivo" 
                         [(ngModel)]="moldParams.aditivoId" 
                         (change)="calculateRecipeFromMold()"
-                        required 
                         class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
                       >
-                        <option [value]="0" disabled>Seleccionar</option>
+                        <option [value]="0">Ninguno / Sin aditivo</option>
                         <option *ngFor="let m of getMateriasByType('ADITIVO')" [value]="m.id">{{ m.nombre }}</option>
                       </select>
                     </div>
@@ -383,7 +382,7 @@ import { AuthService } from '../../services/auth.service';
                       </div>
                     </div>
 
-                    <div *ngIf="moldParams.tipoVela === 'DECORATIVA'" class="flex justify-between items-center text-amber-800">
+                    <div *ngIf="moldParams.tipoVela === 'DECORATIVA' && moldParams.aditivoId > 0 && moldCalculations.aditivo > 0" class="flex justify-between items-center text-amber-800">
                       <span>Aditivo (3%):</span>
                       <div class="font-mono flex items-center gap-3">
                         <span class="text-stone-500">{{ moldCalculations.aditivo | number:'1.0-1' }}g</span>
@@ -842,7 +841,8 @@ export class FabricacionComponent implements OnInit {
     let aditivo = 0;
     let ceraFinal = 0;
 
-    if (this.moldParams.tipoVela === 'DECORATIVA') {
+    const hasAditivo = this.moldParams.tipoVela === 'DECORATIVA' && Number(this.moldParams.aditivoId) > 0;
+    if (hasAditivo) {
       aditivo = ceraInicial * 0.03;
       ceraFinal = ceraInicial - esencia - aditivo;
     } else {
@@ -877,7 +877,7 @@ export class FabricacionComponent implements OnInit {
 
     const costoCera = ceraMat ? (ceraMat.costoUnitario || 0) * ceraFinal : 0;
     const costoEsencia = esenciaMat ? (esenciaMat.costoUnitario || 0) * esencia : 0;
-    const costoAditivo = aditivoMat ? (aditivoMat.costoUnitario || 0) * aditivo : 0;
+    const costoAditivo = (hasAditivo && aditivoMat) ? (aditivoMat.costoUnitario || 0) * aditivo : 0;
     const costoPabilo = pabiloMat ? (pabiloMat.costoUnitario || 0) * pabiloTotal : 0;
     const costoEnvase = (this.moldParams.tipoVela === 'AROMATICA' && envaseMat) ? (envaseMat.costoUnitario || 0) * 1 : 0;
     const costoTotalMold = costoCera + costoEsencia + costoAditivo + costoPabilo + costoEnvase;
@@ -905,7 +905,7 @@ export class FabricacionComponent implements OnInit {
     if (this.moldParams.esenciaId > 0 && esencia > 0) {
       newRecipe.push({ materiaPrimaId: Number(this.moldParams.esenciaId), cantidadNecesaria: Number(esencia.toFixed(2)) });
     }
-    if (this.moldParams.tipoVela === 'DECORATIVA' && this.moldParams.aditivoId > 0 && aditivo > 0) {
+    if (hasAditivo && this.moldParams.aditivoId > 0 && aditivo > 0) {
       newRecipe.push({ materiaPrimaId: Number(this.moldParams.aditivoId), cantidadNecesaria: Number(aditivo.toFixed(2)) });
     }
     if (this.moldParams.tipoVela === 'AROMATICA' && this.moldParams.envaseId > 0) {
