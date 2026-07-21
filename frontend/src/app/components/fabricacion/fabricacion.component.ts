@@ -207,22 +207,13 @@ import { AuthService } from '../../services/auth.service';
 
             <!-- Mold Assistant Panel -->
             <div class="border border-stone-200 rounded-xl p-4 bg-stone-50 space-y-3">
-              <div class="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  id="useMold" 
-                  name="useMold" 
-                  [(ngModel)]="useMold" 
-                  (change)="onUseMoldChange()"
-                  class="rounded border-stone-300 text-brand-primary focus:ring-brand-primary cursor-pointer animate-pulse" 
-                />
-                <label for="useMold" class="text-xs font-bold text-stone-700 uppercase tracking-wider cursor-pointer select-none">
-                  Calcular Receta usando un Molde
-                </label>
+              <div class="flex items-center gap-2 text-xs font-bold text-stone-700 uppercase tracking-wider pb-2 border-b border-stone-200/60">
+                <i class="fa-solid fa-calculator text-brand-dark text-sm"></i>
+                <span>Formulación del Molde e Insumos</span>
               </div>
 
-              <!-- Mold fields if checked -->
-              <div *ngIf="useMold" class="space-y-3 border-t border-stone-200/60 pt-3 animate-fade-in">
+              <!-- Mold fields -->
+              <div class="space-y-3 pt-1">
                 <div class="grid grid-cols-2 gap-4">
                   <div>
                     <label for="pesoAgua" class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Peso del Agua (g)</label>
@@ -248,7 +239,7 @@ import { AuthService } from '../../services/auth.service';
                       class="w-full bg-white border border-stone-200 rounded-lg py-1.5 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary transition-colors"
                     >
                       <option value="DECORATIVA">Decorativa</option>
-                      <option value="AROMATICA">Aromática</option>
+                      <option value="AROMATICA">Aromatizante</option>
                     </select>
                   </div>
                 </div>
@@ -316,6 +307,19 @@ import { AuthService } from '../../services/auth.service';
                       >
                         <option [value]="0" disabled>Seleccionar</option>
                         <option *ngFor="let m of getMateriasByType('ADITIVO')" [value]="m.id">{{ m.nombre }}</option>
+                      </select>
+                    </div>
+
+                    <div *ngIf="moldParams.tipoVela === 'AROMATICA'">
+                      <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Envase / Frasco</label>
+                      <select 
+                        name="moldEnvase" 
+                        [(ngModel)]="moldParams.envaseId" 
+                        (change)="calculateRecipeFromMold()"
+                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
+                      >
+                        <option [value]="0">Sin envase / Ninguno</option>
+                        <option *ngFor="let m of getMateriasByType('ENVASE')" [value]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
                       </select>
                     </div>
 
@@ -395,6 +399,14 @@ import { AuthService } from '../../services/auth.service';
                       </div>
                     </div>
 
+                    <div *ngIf="moldParams.tipoVela === 'AROMATICA' && moldParams.envaseId > 0" class="flex justify-between items-center text-cyan-800">
+                      <span>Envase / Frasco:</span>
+                      <div class="font-mono flex items-center gap-3">
+                        <span class="text-stone-500">1 unid</span>
+                        <span class="font-bold text-cyan-900 w-20 text-right">{{ moldCalculations.costoEnvase | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    </div>
+
                     <div class="flex justify-between items-center text-stone-850 font-semibold pt-0.5">
                       <span>Cera Final Requerida:</span>
                       <div class="font-mono flex items-center gap-3">
@@ -415,60 +427,7 @@ import { AuthService } from '../../services/auth.service';
               </div>
             </div>
 
-            <!-- Recipe design -->
-            <div class="space-y-2">
-              <div class="flex justify-between items-center">
-                <label class="block text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                  {{ useMold ? 'Ingredientes Generados' : 'Fórmula (Materias Primas)' }}
-                </label>
-                <button 
-                  *ngIf="!useMold"
-                  type="button" 
-                  (click)="addRecipeRow()" 
-                  class="text-brand-primary text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold"
-                >
-                  <i class="fa-solid fa-plus text-[10px]"></i>
-                  <span>Agregar fila</span>
-                </button>
-              </div>
 
-              <!-- Recipe rows -->
-              <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                <div *ngIf="compForm.receta.length === 0" class="text-xs text-stone-400 py-2 italic text-center">
-                  {{ useMold ? 'Completa los campos del molde e insumos arriba para generar la receta' : 'No hay materias primas asignadas a este componente' }}
-                </div>
-                <div *ngFor="let row of compForm.receta; let i = index" class="flex gap-2 items-center animate-fade-in">
-                  <select 
-                    name="mat_{{i}}" 
-                    [(ngModel)]="row.materiaPrimaId" 
-                    required 
-                    [disabled]="useMold"
-                    class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors disabled:opacity-85 disabled:cursor-not-allowed"
-                  >
-                    <option [value]="0" disabled selected>Selecciona materia prima</option>
-                    <option *ngFor="let m of materias" [value]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
-                  </select>
-                  <input 
-                    type="number" 
-                    name="qty_{{i}}" 
-                    [(ngModel)]="row.cantidadNecesaria" 
-                    required 
-                    [readonly]="useMold"
-                    min="0.0001" 
-                    placeholder="Cant." 
-                    class="w-24 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors readonly:bg-stone-100 disabled:opacity-85 disabled:cursor-not-allowed" 
-                  />
-                  <button 
-                    *ngIf="!useMold"
-                    type="button" 
-                    (click)="removeRecipeRow(i)" 
-                    class="p-2 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"
-                  >
-                    <i class="fa-solid fa-trash-can text-sm"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
 
             <!-- Reference suggested selling prices -->
             <div *ngIf="getRecipeCost() > 0" class="bg-brand-primary/5 border border-brand-primary/10 rounded-xl p-3 space-y-2 text-xs">
@@ -655,6 +614,7 @@ export class FabricacionComponent implements OnInit {
     ceraId: 0,
     esenciaId: 0,
     aditivoId: 0,
+    envaseId: 0,
     pabiloId: 0,
     cantidadPabilos: 1,
     largoPabiloCm: 10
@@ -670,6 +630,7 @@ export class FabricacionComponent implements OnInit {
     costoEsencia: 0,
     costoAditivo: 0,
     costoPabilo: 0,
+    costoEnvase: 0,
     costoTotalMold: 0
   };
 
@@ -726,6 +687,7 @@ export class FabricacionComponent implements OnInit {
           ceraId: 0,
           esenciaId: 0,
           aditivoId: 0,
+          envaseId: 0,
           pabiloId: 0,
           cantidadPabilos: 1,
           largoPabiloCm: 10
@@ -738,6 +700,8 @@ export class FabricacionComponent implements OnInit {
             this.moldParams.esenciaId = rm.materiaPrimaId;
           } else if (rm.materiaPrima.tipo === 'ADITIVO') {
             this.moldParams.aditivoId = rm.materiaPrimaId;
+          } else if (rm.materiaPrima.tipo === 'ENVASE') {
+            this.moldParams.envaseId = rm.materiaPrimaId;
           } else if (rm.materiaPrima.tipo === 'PABILO') {
             this.moldParams.pabiloId = rm.materiaPrimaId;
             if (rm.materiaPrima.unidadMedida === 'CM') {
@@ -755,7 +719,7 @@ export class FabricacionComponent implements OnInit {
       }
     } else {
       this.editingComp = null;
-      this.useMold = false;
+      this.useMold = true;
       this.compForm = {
         nombre: '',
         stockDisponible: 0,
@@ -768,6 +732,7 @@ export class FabricacionComponent implements OnInit {
         ceraId: 0,
         esenciaId: 0,
         aditivoId: 0,
+        envaseId: 0,
         pabiloId: 0,
         cantidadPabilos: 1,
         largoPabiloCm: 10
@@ -851,11 +816,13 @@ export class FabricacionComponent implements OnInit {
     const esenciaItem = this.materias.find(m => m.tipo === 'ESENCIA');
     const aditivoItem = this.materias.find(m => m.tipo === 'ADITIVO');
     const pabiloItem = this.materias.find(m => m.tipo === 'PABILO');
+    const envaseItem = this.materias.find(m => m.tipo === 'ENVASE');
 
     this.moldParams.ceraId = ceraItem ? ceraItem.id : 0;
     this.moldParams.esenciaId = esenciaItem ? esenciaItem.id : 0;
     this.moldParams.aditivoId = aditivoItem ? aditivoItem.id : 0;
     this.moldParams.pabiloId = pabiloItem ? pabiloItem.id : 0;
+    this.moldParams.envaseId = envaseItem ? envaseItem.id : 0;
 
     this.calculateRecipeFromMold();
   }
@@ -906,12 +873,14 @@ export class FabricacionComponent implements OnInit {
     const ceraMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.ceraId));
     const esenciaMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.esenciaId));
     const aditivoMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.aditivoId));
+    const envaseMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.envaseId));
 
     const costoCera = ceraMat ? (ceraMat.costoUnitario || 0) * ceraFinal : 0;
     const costoEsencia = esenciaMat ? (esenciaMat.costoUnitario || 0) * esencia : 0;
     const costoAditivo = aditivoMat ? (aditivoMat.costoUnitario || 0) * aditivo : 0;
     const costoPabilo = pabiloMat ? (pabiloMat.costoUnitario || 0) * pabiloTotal : 0;
-    const costoTotalMold = costoCera + costoEsencia + costoAditivo + costoPabilo;
+    const costoEnvase = (this.moldParams.tipoVela === 'AROMATICA' && envaseMat) ? (envaseMat.costoUnitario || 0) * 1 : 0;
+    const costoTotalMold = costoCera + costoEsencia + costoAditivo + costoPabilo + costoEnvase;
 
     this.moldCalculations = {
       ceraInicial,
@@ -924,6 +893,7 @@ export class FabricacionComponent implements OnInit {
       costoEsencia,
       costoAditivo,
       costoPabilo,
+      costoEnvase,
       costoTotalMold
     };
 
@@ -938,6 +908,9 @@ export class FabricacionComponent implements OnInit {
     if (this.moldParams.tipoVela === 'DECORATIVA' && this.moldParams.aditivoId > 0 && aditivo > 0) {
       newRecipe.push({ materiaPrimaId: Number(this.moldParams.aditivoId), cantidadNecesaria: Number(aditivo.toFixed(2)) });
     }
+    if (this.moldParams.tipoVela === 'AROMATICA' && this.moldParams.envaseId > 0) {
+      newRecipe.push({ materiaPrimaId: Number(this.moldParams.envaseId), cantidadNecesaria: 1 });
+    }
     if (this.moldParams.pabiloId > 0 && pabiloTotal > 0) {
       newRecipe.push({ materiaPrimaId: Number(this.moldParams.pabiloId), cantidadNecesaria: Number(pabiloTotal.toFixed(2)) });
     }
@@ -947,7 +920,7 @@ export class FabricacionComponent implements OnInit {
 
   formatTipoVela(tipo: string): string {
     if (!tipo) return '';
-    return tipo === 'DECORATIVA' ? 'Decorativa' : 'Aromática';
+    return tipo === 'DECORATIVA' ? 'Decorativa' : 'Aromatizante';
   }
 
   // Product modal handling

@@ -179,13 +179,14 @@ import { AuthService } from '../../services/auth.service';
                  required 
                  class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
                >
-                 <option value="CERA">CERA (Ceras base)</option>
-                 <option value="ESENCIA">ESENCIA (Aromas y fragancias)</option>
-                 <option value="ADITIVO">ADITIVO (Estearina, endurecedores, etc.)</option>
-                 <option value="PABILO">PABILO (Mechas de algodón/madera)</option>
-                 <option value="MOLDE">MOLDE (Moldes de silicona/metal)</option>
-                 <option value="DECORACION">DECORACIÓN (Flores, pigmentos, purpurina)</option>
-                 <option value="INSUMO_GENERAL">INSUMO GENERAL (Cajas, empaques, etc.)</option>
+                  <option value="CERA">CERA (Ceras base)</option>
+                  <option value="ESENCIA">ESENCIA (Aromas y fragancias)</option>
+                  <option value="ADITIVO">ADITIVO (Estearina, endurecedores, etc.)</option>
+                  <option value="PABILO">PABILO (Mechas de algodón/madera)</option>
+                  <option value="ENVASE">ENVASE (Envases de vidrio, latas, frascos)</option>
+                  <option value="MOLDE">MOLDE (Moldes de silicona/metal)</option>
+                  <option value="DECORACION">DECORACIÓN (Flores, pigmentos, purpurina)</option>
+                  <option value="INSUMO_GENERAL">INSUMO GENERAL (Cajas, empaques, etc.)</option>
                </select>
              </div>
 
@@ -306,6 +307,7 @@ export class MateriaPrimaComponent implements OnInit {
     { label: 'Esencias', value: 'ESENCIA' },
     { label: 'Aditivos', value: 'ADITIVO' },
     { label: 'Pabilos', value: 'PABILO' },
+    { label: 'Envases', value: 'ENVASE' },
     { label: 'Moldes', value: 'MOLDE' },
     { label: 'Decoración', value: 'DECORACION' },
     { label: 'Otros', value: 'INSUMO_GENERAL' }
@@ -441,6 +443,9 @@ export class MateriaPrimaComponent implements OnInit {
     } else if (tipo === 'PABILO') {
       this.formModel.unidadMedida = 'CM';
       this.formModel.stockMinimo = 50;
+    } else if (tipo === 'ENVASE') {
+      this.formModel.unidadMedida = 'UNIDAD';
+      this.formModel.stockMinimo = 10;
     } else if (tipo === 'MOLDE') {
       this.formModel.unidadMedida = 'UNIDAD';
       this.formModel.stockMinimo = 2;
@@ -459,6 +464,7 @@ export class MateriaPrimaComponent implements OnInit {
       case 'ESENCIA': return 'bg-purple-50 text-purple-800 border-purple-200\/60';
       case 'ADITIVO': return 'bg-sky-50 text-sky-800 border-sky-200\/60';
       case 'PABILO': return 'bg-orange-50 text-orange-800 border-orange-200\/60';
+      case 'ENVASE': return 'bg-cyan-50 text-cyan-800 border-cyan-200\/60';
       case 'MOLDE': return 'bg-emerald-50 text-emerald-800 border-emerald-200\/60';
       case 'DECORACION': return 'bg-rose-50 text-rose-800 border-rose-200\/60';
       default: return 'bg-stone-50 text-stone-600 border-stone-200\/60';
@@ -471,6 +477,7 @@ export class MateriaPrimaComponent implements OnInit {
       case 'ESENCIA': return 'Esencia';
       case 'ADITIVO': return 'Aditivo';
       case 'PABILO': return 'Pabilo';
+      case 'ENVASE': return 'Envase';
       case 'MOLDE': return 'Molde';
       case 'DECORACION': return 'Decoración';
       default: return 'Insumo Gral';
