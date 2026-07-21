@@ -276,7 +276,7 @@ import { AuthService } from '../../services/auth.service';
                 <div class="border-t border-stone-200/60 pt-3 space-y-2">
                   <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Asociar Insumos del Inventario</p>
                   
-                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Cera</label>
                       <select 
@@ -318,15 +318,99 @@ import { AuthService } from '../../services/auth.service';
                         <option *ngFor="let m of getMateriasByType('ADITIVO')" [value]="m.id">{{ m.nombre }}</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Pabilo / Mecha</label>
+                      <select 
+                        name="moldPabilo" 
+                        [(ngModel)]="moldParams.pabiloId" 
+                        (change)="calculateRecipeFromMold()"
+                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
+                      >
+                        <option [value]="0">Ninguno / Sin pabilo</option>
+                        <option *ngFor="let m of getMateriasByType('PABILO')" [value]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Pabilo configuration details -->
+                  <div *ngIf="moldParams.pabiloId > 0" class="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Número de Pabilos</label>
+                      <input 
+                        type="number" 
+                        name="cantidadPabilos" 
+                        [(ngModel)]="moldParams.cantidadPabilos" 
+                        (input)="calculateRecipeFromMold()"
+                        min="1" 
+                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Largo por Pabilo (cm)</label>
+                      <input 
+                        type="number" 
+                        name="largoPabiloCm" 
+                        [(ngModel)]="moldParams.largoPabiloCm" 
+                        (input)="calculateRecipeFromMold()"
+                        min="1" 
+                        placeholder="Ej. 10"
+                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary font-bold"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <!-- Info panel for calculated values -->
-                <div class="bg-white border border-stone-200 rounded-lg p-2.5 text-[11px] text-stone-600 space-y-1 font-medium shadow-inner">
-                  <p class="flex justify-between"><span>Cera Inicial (90% densidad):</span> <span class="font-bold text-stone-800">{{ moldCalculations.ceraInicial | number:'1.0-2' }}g</span></p>
-                  <p class="flex justify-between text-brand-dark"><span>Esencia ({{ moldParams.porcentajeEsencia }}%):</span> <span class="font-bold">{{ moldCalculations.esencia | number:'1.0-2' }}g</span></p>
-                  <p *ngIf="moldParams.tipoVela === 'DECORATIVA'" class="flex justify-between text-amber-700"><span>Aditivo (3%):</span> <span class="font-bold">{{ moldCalculations.aditivo | number:'1.0-2' }}g</span></p>
-                  <p class="flex justify-between text-stone-900 border-t border-stone-100 pt-1.5 font-bold"><span>Cera Final Requerida:</span> <span>{{ moldCalculations.ceraFinal | number:'1.0-2' }}g</span></p>
+                <!-- Info panel for calculated values with clean tabular layout -->
+                <div class="bg-stone-50 border border-stone-200/80 rounded-xl p-3.5 text-xs text-stone-700 space-y-2.5 shadow-sm">
+                  <!-- Top: Cera Inicial -->
+                  <div class="flex justify-between items-center text-stone-500 font-medium pb-2 border-b border-stone-200/80">
+                    <span>Cera Inicial (90% densidad):</span>
+                    <span class="font-mono font-bold text-stone-800">{{ moldCalculations.ceraInicial | number:'1.0-1' }}g</span>
+                  </div>
+
+                  <!-- Middle: Insumos calculados con cantidades y costos -->
+                  <div class="space-y-1.5 py-0.5">
+                    <div class="flex justify-between items-center text-amber-900">
+                      <span>Esencia ({{ moldParams.porcentajeEsencia }}%):</span>
+                      <div class="font-mono flex items-center gap-3">
+                        <span class="text-stone-500">{{ moldCalculations.esencia | number:'1.0-1' }}g</span>
+                        <span class="font-bold text-amber-900 w-20 text-right">{{ moldCalculations.costoEsencia | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    </div>
+
+                    <div *ngIf="moldParams.tipoVela === 'DECORATIVA'" class="flex justify-between items-center text-amber-800">
+                      <span>Aditivo (3%):</span>
+                      <div class="font-mono flex items-center gap-3">
+                        <span class="text-stone-500">{{ moldCalculations.aditivo | number:'1.0-1' }}g</span>
+                        <span class="font-bold text-amber-800 w-20 text-right">{{ moldCalculations.costoAditivo | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    </div>
+
+                    <div *ngIf="moldParams.pabiloId > 0" class="flex justify-between items-center text-emerald-800">
+                      <span>Pabilo ({{ moldParams.cantidadPabilos }}x mecha de {{ moldParams.largoPabiloCm }}cm):</span>
+                      <div class="font-mono flex items-center gap-3">
+                        <span class="text-stone-500">{{ moldCalculations.pabiloTotal | number:'1.0-1' }} {{ moldCalculations.pabiloUnidad }}</span>
+                        <span class="font-bold text-emerald-900 w-20 text-right">{{ moldCalculations.costoPabilo | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-stone-850 font-semibold pt-0.5">
+                      <span>Cera Final Requerida:</span>
+                      <div class="font-mono flex items-center gap-3">
+                        <span class="text-stone-700 font-bold">{{ moldCalculations.ceraFinal | number:'1.0-1' }}g</span>
+                        <span class="font-bold text-stone-900 w-20 text-right">{{ moldCalculations.costoCera | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Bottom: Costo Total -->
+                  <div class="border-t border-stone-200/80 pt-2">
+                    <div class="flex justify-between items-center font-extrabold text-xs text-stone-900">
+                      <span class="uppercase tracking-wider text-[10px] text-stone-500 font-bold">COSTO TOTAL ESTIMADO:</span>
+                      <span class="font-mono text-sm text-brand-dark font-black">{{ moldCalculations.costoTotalMold | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -570,13 +654,23 @@ export class FabricacionComponent implements OnInit {
     porcentajeEsencia: 10,
     ceraId: 0,
     esenciaId: 0,
-    aditivoId: 0
+    aditivoId: 0,
+    pabiloId: 0,
+    cantidadPabilos: 1,
+    largoPabiloCm: 10
   };
   moldCalculations = {
     ceraInicial: 0,
     esencia: 0,
     aditivo: 0,
-    ceraFinal: 0
+    ceraFinal: 0,
+    pabiloTotal: 0,
+    pabiloUnidad: 'cm',
+    costoCera: 0,
+    costoEsencia: 0,
+    costoAditivo: 0,
+    costoPabilo: 0,
+    costoTotalMold: 0
   };
 
   // Product Modal Data
@@ -631,7 +725,10 @@ export class FabricacionComponent implements OnInit {
           porcentajeEsencia: comp.porcentajeEsencia,
           ceraId: 0,
           esenciaId: 0,
-          aditivoId: 0
+          aditivoId: 0,
+          pabiloId: 0,
+          cantidadPabilos: 1,
+          largoPabiloCm: 10
         };
         // Pre-select from recipe by explicit type
         comp.recetaMaterias.forEach((rm: any) => {
@@ -641,6 +738,14 @@ export class FabricacionComponent implements OnInit {
             this.moldParams.esenciaId = rm.materiaPrimaId;
           } else if (rm.materiaPrima.tipo === 'ADITIVO') {
             this.moldParams.aditivoId = rm.materiaPrimaId;
+          } else if (rm.materiaPrima.tipo === 'PABILO') {
+            this.moldParams.pabiloId = rm.materiaPrimaId;
+            if (rm.materiaPrima.unidadMedida === 'CM') {
+              this.moldParams.largoPabiloCm = rm.cantidadNecesaria;
+              this.moldParams.cantidadPabilos = 1;
+            } else if (rm.materiaPrima.unidadMedida === 'UNIDAD') {
+              this.moldParams.cantidadPabilos = rm.cantidadNecesaria;
+            }
           }
         });
         this.calculateRecipeFromMold();
@@ -662,7 +767,10 @@ export class FabricacionComponent implements OnInit {
         porcentajeEsencia: 10,
         ceraId: 0,
         esenciaId: 0,
-        aditivoId: 0
+        aditivoId: 0,
+        pabiloId: 0,
+        cantidadPabilos: 1,
+        largoPabiloCm: 10
       };
       this.autoDetectMoldInsumos();
     }
@@ -742,10 +850,12 @@ export class FabricacionComponent implements OnInit {
     const ceraItem = this.materias.find(m => m.tipo === 'CERA');
     const esenciaItem = this.materias.find(m => m.tipo === 'ESENCIA');
     const aditivoItem = this.materias.find(m => m.tipo === 'ADITIVO');
+    const pabiloItem = this.materias.find(m => m.tipo === 'PABILO');
 
     this.moldParams.ceraId = ceraItem ? ceraItem.id : 0;
     this.moldParams.esenciaId = esenciaItem ? esenciaItem.id : 0;
     this.moldParams.aditivoId = aditivoItem ? aditivoItem.id : 0;
+    this.moldParams.pabiloId = pabiloItem ? pabiloItem.id : 0;
 
     this.calculateRecipeFromMold();
   }
@@ -772,11 +882,49 @@ export class FabricacionComponent implements OnInit {
       ceraFinal = ceraInicial - esencia;
     }
 
+    // Pabilo calculation
+    let pabiloTotal = 0;
+    let pabiloUnidad = 'cm';
+    const pabiloMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.pabiloId));
+    if (pabiloMat) {
+      const cantPabs = Number(this.moldParams.cantidadPabilos) || 1;
+      const largoCm = Number(this.moldParams.largoPabiloCm) || 0;
+
+      if (pabiloMat.unidadMedida === 'METROS') {
+        pabiloTotal = (cantPabs * (largoCm > 0 ? largoCm : 1)) / 100;
+        pabiloUnidad = 'm';
+      } else if (largoCm > 0) {
+        pabiloTotal = cantPabs * largoCm;
+        pabiloUnidad = 'cm';
+      } else {
+        pabiloTotal = cantPabs;
+        pabiloUnidad = 'unid';
+      }
+    }
+
+    // Individual costs calculation
+    const ceraMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.ceraId));
+    const esenciaMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.esenciaId));
+    const aditivoMat = this.materias.find(m => Number(m.id) === Number(this.moldParams.aditivoId));
+
+    const costoCera = ceraMat ? (ceraMat.costoUnitario || 0) * ceraFinal : 0;
+    const costoEsencia = esenciaMat ? (esenciaMat.costoUnitario || 0) * esencia : 0;
+    const costoAditivo = aditivoMat ? (aditivoMat.costoUnitario || 0) * aditivo : 0;
+    const costoPabilo = pabiloMat ? (pabiloMat.costoUnitario || 0) * pabiloTotal : 0;
+    const costoTotalMold = costoCera + costoEsencia + costoAditivo + costoPabilo;
+
     this.moldCalculations = {
       ceraInicial,
       esencia,
       aditivo,
-      ceraFinal
+      ceraFinal,
+      pabiloTotal,
+      pabiloUnidad,
+      costoCera,
+      costoEsencia,
+      costoAditivo,
+      costoPabilo,
+      costoTotalMold
     };
 
     // Rebuild receta list
@@ -789,6 +937,9 @@ export class FabricacionComponent implements OnInit {
     }
     if (this.moldParams.tipoVela === 'DECORATIVA' && this.moldParams.aditivoId > 0 && aditivo > 0) {
       newRecipe.push({ materiaPrimaId: Number(this.moldParams.aditivoId), cantidadNecesaria: Number(aditivo.toFixed(2)) });
+    }
+    if (this.moldParams.pabiloId > 0 && pabiloTotal > 0) {
+      newRecipe.push({ materiaPrimaId: Number(this.moldParams.pabiloId), cantidadNecesaria: Number(pabiloTotal.toFixed(2)) });
     }
 
     this.compForm.receta = newRecipe;
