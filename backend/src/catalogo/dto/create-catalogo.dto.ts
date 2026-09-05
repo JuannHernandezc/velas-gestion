@@ -12,6 +12,17 @@ class EnsambleItemDto {
   cantidadNecesaria: number;
 }
 
+class EnsambleMateriaPrimaItemDto {
+  @IsNotEmpty()
+  @IsNumber()
+  materiaPrimaId: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0.0001, { message: 'La cantidad debe ser mayor a 0' })
+  cantidadNecesaria: number;
+}
+
 export class CreateCatalogoDto {
   @IsNotEmpty({ message: 'El nombre es requerido' })
   @IsString()
@@ -35,4 +46,10 @@ export class CreateCatalogoDto {
   @ValidateNested({ each: true })
   @Type(() => EnsambleItemDto)
   ensambles?: EnsambleItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EnsambleMateriaPrimaItemDto)
+  materiasPrimas?: EnsambleMateriaPrimaItemDto[];
 }

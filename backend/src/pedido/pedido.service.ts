@@ -82,6 +82,11 @@ export class PedidoService {
                 componenteBase: true,
               },
             },
+            ensamblesMateriaPrima: {
+              include: {
+                materiaPrima: true,
+              },
+            },
           },
         });
 
@@ -113,6 +118,27 @@ export class PedidoService {
             });
 
             costoUnitarioProducto += ens.componenteBase.costoProduccion * ens.cantidadNecesaria;
+          }
+
+          for (const ensMateria of prod.ensamblesMateriaPrima) {
+            const qtyNeeded = ensMateria.cantidadNecesaria * item.cantidad;
+
+            if (ensMateria.materiaPrima.stockActual < qtyNeeded) {
+              throw new BadRequestException(
+                `Stock insuficiente para la materia prima "${ensMateria.materiaPrima.nombre}". Requerido: ${qtyNeeded}, Disponible: ${ensMateria.materiaPrima.stockActual}`,
+              );
+            }
+
+            await tx.materiaPrima.update({
+              where: { id: ensMateria.materiaPrimaId },
+              data: {
+                stockActual: {
+                  decrement: qtyNeeded,
+                },
+              },
+            });
+
+            costoUnitarioProducto += ensMateria.materiaPrima.costoUnitario * ensMateria.cantidadNecesaria;
           }
         }
 

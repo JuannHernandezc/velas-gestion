@@ -27,6 +27,7 @@ model MateriaPrima {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   recetas       RecetaComponente[]
+  ensamblesDirectos EstructuraEnsambleMateriaPrima[]
 }
 
 model ComponenteBase {
@@ -65,6 +66,7 @@ model CatalogoProducto {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   ensambles        EstructuraEnsamble[]
+  ensamblesMateriaPrima EstructuraEnsambleMateriaPrima[]
   detallesPedido   DetallePedido[]
 }
 
@@ -79,6 +81,19 @@ model EstructuraEnsamble {
   updatedAt          DateTime         @updatedAt
 
   @@unique([catalogoProductoId, componenteBaseId])
+}
+
+model EstructuraEnsambleMateriaPrima {
+  id                 Int              @id @default(autoincrement())
+  catalogoProductoId Int
+  catalogoProducto   CatalogoProducto @relation(fields: [catalogoProductoId], references: [id], onDelete: Cascade)
+  materiaPrimaId     Int
+  materiaPrima       MateriaPrima     @relation(fields: [materiaPrimaId], references: [id], onDelete: Restrict)
+  cantidadNecesaria  Float
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([catalogoProductoId, materiaPrimaId])
 }
 
 model Pedido {

@@ -14,13 +14,18 @@ export class CatalogoService {
             componenteBase: true,
           },
         },
+        ensamblesMateriaPrima: {
+          include: {
+            materiaPrima: true,
+          },
+        },
       },
       orderBy: { id: 'asc' },
     });
 
     if (rolUser === 'OPERATIVO') {
       return list.map(prod => {
-        const { ensambles, ...rest } = prod;
+        const { ensambles, ensamblesMateriaPrima, ...rest } = prod;
         const safeEns = ensambles.map(ens => {
           const { componenteBase, ...ensRest } = ens;
           const { costoProduccion, ...compRest } = componenteBase;
@@ -32,6 +37,11 @@ export class CatalogoService {
         return {
           ...rest,
           ensambles: safeEns,
+          ensamblesMateriaPrima: ensamblesMateriaPrima.map(ens => {
+            const { materiaPrima, ...ensRest } = ens;
+            const { costoUnitario, ...materiaPrimaSegura } = materiaPrima;
+            return { ...ensRest, materiaPrima: materiaPrimaSegura };
+          }),
         };
       });
     }
@@ -47,13 +57,18 @@ export class CatalogoService {
             componenteBase: true,
           },
         },
+        ensamblesMateriaPrima: {
+          include: {
+            materiaPrima: true,
+          },
+        },
       },
     });
     if (!prod) {
       throw new NotFoundException('Producto del catálogo no encontrado');
     }
     if (rolUser === 'OPERATIVO') {
-      const { ensambles, ...rest } = prod;
+      const { ensambles, ensamblesMateriaPrima, ...rest } = prod;
       const safeEns = ensambles.map(ens => {
         const { componenteBase, ...ensRest } = ens;
         const { costoProduccion, ...compRest } = componenteBase;
@@ -65,6 +80,11 @@ export class CatalogoService {
       return {
         ...rest,
         ensambles: safeEns,
+        ensamblesMateriaPrima: ensamblesMateriaPrima.map(ens => {
+          const { materiaPrima, ...ensRest } = ens;
+          const { costoUnitario, ...materiaPrimaSegura } = materiaPrima;
+          return { ...ensRest, materiaPrima: materiaPrimaSegura };
+        }),
       };
     }
     return prod;
@@ -107,14 +127,38 @@ export class CatalogoService {
         }
       }
 
+      if (dto.requiereEnsamble && dto.materiasPrimas) {
+        for (const materiaItem of dto.materiasPrimas) {
+          const materiaPrima = await tx.materiaPrima.findUnique({
+            where: { id: materiaItem.materiaPrimaId },
+          });
+          if (!materiaPrima) {
+            throw new NotFoundException(`Materia prima con ID ${materiaItem.materiaPrimaId} no encontrada`);
+          }
+
+          await tx.estructuraEnsambleMateriaPrima.create({
+            data: {
+              catalogoProductoId: prod.id,
+              materiaPrimaId: materiaItem.materiaPrimaId,
+              cantidadNecesaria: materiaItem.cantidadNecesaria,
+            },
+          });
+        }
+      }
+
       return tx.catalogoProducto.findUnique({
         where: { id: prod.id },
         include: {
-          ensambles: {
-            include: {
-              componenteBase: true,
-            },
+        ensambles: {
+          include: {
+            componenteBase: true,
           },
+        },
+        ensamblesMateriaPrima: {
+          include: {
+            materiaPrima: true,
+          },
+        },
         },
       });
     });
@@ -150,8 +194,11 @@ export class CatalogoService {
         },
       });
 
-      if (dto.ensambles !== undefined) {
+      if (dto.ensambles !== undefined || dto.materiasPrimas !== undefined) {
         await tx.estructuraEnsamble.deleteMany({
+          where: { catalogoProductoId: id },
+        });
+        await tx.estructuraEnsambleMateriaPrima.deleteMany({
           where: { catalogoProductoId: id },
         });
 
@@ -173,16 +220,40 @@ export class CatalogoService {
             });
           }
         }
+
+        if (requiereEnsamble && dto.materiasPrimas) {
+          for (const materiaItem of dto.materiasPrimas) {
+            const materiaPrima = await tx.materiaPrima.findUnique({
+              where: { id: materiaItem.materiaPrimaId },
+            });
+            if (!materiaPrima) {
+              throw new NotFoundException(`Materia prima con ID ${materiaItem.materiaPrimaId} no encontrada`);
+            }
+
+            await tx.estructuraEnsambleMateriaPrima.create({
+              data: {
+                catalogoProductoId: id,
+                materiaPrimaId: materiaItem.materiaPrimaId,
+                cantidadNecesaria: materiaItem.cantidadNecesaria,
+              },
+            });
+          }
+        }
       }
 
       return tx.catalogoProducto.findUnique({
         where: { id },
         include: {
-          ensambles: {
-            include: {
-              componenteBase: true,
-            },
+        ensambles: {
+          include: {
+            componenteBase: true,
           },
+        },
+        ensamblesMateriaPrima: {
+          include: {
+            materiaPrima: true,
+          },
+        },
         },
       });
     });

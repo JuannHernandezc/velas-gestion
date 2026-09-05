@@ -179,6 +179,10 @@ import { AuthService } from '../../services/auth.service';
                     <span class="truncate pr-2">• {{ ens.componenteBase?.nombre }}</span>
                     <span class="shrink-0 font-medium text-stone-400">{{ ens.cantidadNecesaria }} UND</span>
                   </div>
+                  <div *ngFor="let ensMateria of prod.ensamblesMateriaPrima" class="flex justify-between text-[11px] text-stone-600">
+                    <span class="truncate pr-2">• {{ ensMateria.materiaPrima?.nombre }}</span>
+                    <span class="shrink-0 font-medium text-stone-400">{{ ensMateria.cantidadNecesaria }} {{ ensMateria.materiaPrima?.unidadMedida }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -522,13 +526,13 @@ import { AuthService } from '../../services/auth.service';
 
             <div class="flex items-center gap-2 py-2">
               <input type="checkbox" id="prodReq" name="prodReq" [(ngModel)]="prodForm.requiereEnsamble" class="rounded border-stone-300 text-brand-primary focus:ring-brand-primary" />
-              <label for="prodReq" class="text-xs font-semibold text-stone-600 uppercase tracking-wider">Requiere ensamblar componentes base</label>
+              <label for="prodReq" class="text-xs font-semibold text-stone-600 uppercase tracking-wider">Requiere ensamblaje</label>
             </div>
 
             <!-- Assemblies design if requiereEnsamble is checked -->
             <div *ngIf="prodForm.requiereEnsamble" class="space-y-2">
               <div class="flex justify-between items-center">
-                <label class="block text-xs font-semibold text-stone-500 uppercase tracking-wider">Fórmula de Ensamble (Componentes Base)</label>
+                <label class="block text-xs font-semibold text-stone-500 uppercase tracking-wider">Componentes Base</label>
                 <button type="button" (click)="addEnsambleRow()" class="text-brand-primary text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold">
                   <i class="fa-solid fa-plus text-[10px]"></i>
                   <span>Agregar fila</span>
@@ -557,6 +561,42 @@ import { AuthService } from '../../services/auth.service';
                     class="w-24 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" 
                   />
                   <button type="button" (click)="removeEnsambleRow(i)" class="p-2 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center pt-2 border-t border-stone-100">
+                <label class="block text-xs font-semibold text-stone-500 uppercase tracking-wider">Insumos Directos</label>
+                <button type="button" (click)="addMateriaPrimaEnsambleRow()" class="text-brand-primary text-xs hover:underline flex items-center gap-1 cursor-pointer font-semibold">
+                  <i class="fa-solid fa-plus text-[10px]"></i>
+                  <span>Agregar fila</span>
+                </button>
+              </div>
+
+              <p *ngIf="prodForm.materiasPrimas.length === 0" class="text-[10px] text-stone-400">
+                Agrega aquí decoración, empaques u otros materiales usados solamente en el producto final.
+              </p>
+              <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                <div *ngFor="let row of prodForm.materiasPrimas; let i = index" class="flex gap-2 items-center">
+                  <select
+                    name="materia_{{i}}"
+                    [(ngModel)]="row.materiaPrimaId"
+                    required
+                    class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
+                  >
+                    <option [value]="0" disabled selected>Selecciona materia prima</option>
+                    <option *ngFor="let m of materias" [value]="m.id">{{ m.nombre }} (Stock: {{ m.stockActual }} {{ m.unidadMedida }})</option>
+                  </select>
+                  <input
+                    type="number"
+                    name="materiaQty_{{i}}"
+                    [(ngModel)]="row.cantidadNecesaria"
+                    required
+                    min="0.0001"
+                    step="any"
+                    placeholder="Cant."
+                    class="w-24 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
+                  />
+                  <button type="button" (click)="removeMateriaPrimaEnsambleRow(i)" class="p-2 text-stone-400 hover:text-red-500 transition-colors cursor-pointer"><i class="fa-solid fa-trash-can text-sm"></i></button>
                 </div>
               </div>
             </div>
@@ -641,7 +681,8 @@ export class FabricacionComponent implements OnInit {
     precioVenta: 0,
     requiereEnsamble: false,
     imagenUrl: '',
-    ensambles: [] as { componenteBaseId: number; cantidadNecesaria: number }[]
+    ensambles: [] as { componenteBaseId: number; cantidadNecesaria: number }[],
+    materiasPrimas: [] as { materiaPrimaId: number; cantidadNecesaria: number }[]
   };
 
   constructor(private http: HttpClient, private authService: AuthService) {
@@ -936,7 +977,11 @@ export class FabricacionComponent implements OnInit {
         precioVenta: prod.precioVenta,
         requiereEnsamble: prod.requiereEnsamble,
         imagenUrl: prod.imagenUrl || '',
-        ensambles: ensRows
+        ensambles: ensRows,
+        materiasPrimas: (prod.ensamblesMateriaPrima || []).map((e: any) => ({
+          materiaPrimaId: e.materiaPrimaId,
+          cantidadNecesaria: e.cantidadNecesaria
+        }))
       };
     } else {
       this.editingProd = null;
@@ -945,7 +990,8 @@ export class FabricacionComponent implements OnInit {
         precioVenta: 0,
         requiereEnsamble: false,
         imagenUrl: '',
-        ensambles: []
+        ensambles: [],
+        materiasPrimas: []
       };
     }
     this.isProdModalOpen = true;
@@ -964,6 +1010,14 @@ export class FabricacionComponent implements OnInit {
     this.prodForm.ensambles.splice(index, 1);
   }
 
+  addMateriaPrimaEnsambleRow(): void {
+    this.prodForm.materiasPrimas.push({ materiaPrimaId: 0, cantidadNecesaria: 1 });
+  }
+
+  removeMateriaPrimaEnsambleRow(index: number): void {
+    this.prodForm.materiasPrimas.splice(index, 1);
+  }
+
   saveProd(): void {
     const validEns = this.prodForm.ensambles
       .filter(e => Number(e.componenteBaseId) > 0 && Number(e.cantidadNecesaria) > 0)
@@ -971,9 +1025,16 @@ export class FabricacionComponent implements OnInit {
         componenteBaseId: Number(e.componenteBaseId),
         cantidadNecesaria: Number(e.cantidadNecesaria)
       }));
+    const validMateriasPrimas = this.prodForm.materiasPrimas
+      .filter(m => Number(m.materiaPrimaId) > 0 && Number(m.cantidadNecesaria) > 0)
+      .map(m => ({
+        materiaPrimaId: Number(m.materiaPrimaId),
+        cantidadNecesaria: Number(m.cantidadNecesaria)
+      }));
     const payload = {
       ...this.prodForm,
-      ensambles: this.prodForm.requiereEnsamble ? validEns : []
+      ensambles: this.prodForm.requiereEnsamble ? validEns : [],
+      materiasPrimas: this.prodForm.requiereEnsamble ? validMateriasPrimas : []
     };
 
     const url = 'http://localhost:3000/api/catalogo';
@@ -1036,6 +1097,12 @@ export class FabricacionComponent implements OnInit {
         const comp = this.componentes.find(c => c.id === Number(row.componenteBaseId));
         if (comp) {
           cost += comp.costoProduccion * (row.cantidadNecesaria || 0);
+        }
+      });
+      this.prodForm.materiasPrimas.forEach(row => {
+        const materiaPrima = this.materias.find(m => m.id === Number(row.materiaPrimaId));
+        if (materiaPrima) {
+          cost += materiaPrima.costoUnitario * (row.cantidadNecesaria || 0);
         }
       });
       return cost;
