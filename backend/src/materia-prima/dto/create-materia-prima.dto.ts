@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, Min, IsIn } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, Min, IsIn, IsOptional } from 'class-validator';
 
 export class CreateMateriaPrimaDto {
   @IsNotEmpty({ message: 'El nombre es requerido' })
@@ -7,7 +7,7 @@ export class CreateMateriaPrimaDto {
 
   @IsNotEmpty({ message: 'El tipo de insumo es requerido' })
   @IsString()
-  @IsIn(['CERA', 'ESENCIA', 'ADITIVO', 'PABILO', 'MOLDE', 'DECORACION', 'INSUMO_GENERAL'])
+  @IsIn(['CERA', 'ESENCIA', 'ADITIVO', 'PABILO', 'ENVASE', 'MOLDE', 'DECORACION', 'INSUMO_GENERAL'])
   tipo: string;
 
   @IsNotEmpty({ message: 'La unidad de medida es requerida' })
@@ -24,8 +24,8 @@ export class CreateMateriaPrimaDto {
   @Min(0, { message: 'El stock actual no puede ser negativo' })
   stockActual: number;
 
-  @IsNotEmpty({ message: 'El stock mínimo es requerido' })
+  @IsOptional()
   @IsNumber({}, { message: 'El stock mínimo debe ser un número' })
   @Min(0, { message: 'El stock mínimo no puede ser negativo' })
-  stockMinimo: number;
+  stockMinimo?: number | null;
 }

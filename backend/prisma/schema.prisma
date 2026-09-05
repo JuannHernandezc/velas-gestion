@@ -23,7 +23,7 @@ model MateriaPrima {
   unidadMedida  String             // "GR" | "ML" | "CM" | "UNIDAD" | "MOLDE" | "DECORACION"
   costoUnitario Float              // Costo real por unidad
   stockActual   Float              // Cantidad en inventario
-  stockMinimo   Float              @default(10) // Umbral personalizado de stock bajo
+  stockMinimo   Float?             // Umbral opcional para alertas de stock bajo
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   recetas       RecetaComponente[]

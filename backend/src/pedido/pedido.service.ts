@@ -200,8 +200,12 @@ export class PedidoService {
     const totalRentabilidad = salesAgg._sum.rentabilidad ?? 0;
 
     // Alertas de stock bajo
-    const materias = await this.prisma.materiaPrima.findMany();
-    const alertMaterias = materias.filter(m => m.stockActual < m.stockMinimo);
+    const materias = await this.prisma.materiaPrima.findMany({
+      where: { stockMinimo: { not: null } },
+    });
+    const alertMaterias = materias.filter(
+      m => m.stockMinimo !== null && m.stockActual < m.stockMinimo,
+    );
 
     const componentes = await this.prisma.componenteBase.findMany();
     const alertComponentes = componentes.filter(c => c.stockDisponible < 5); // Menos de 5 unidades

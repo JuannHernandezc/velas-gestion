@@ -12,10 +12,7 @@ export class AuthService {
   public currentUser$ = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient, private router: Router) {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      this.currentUserSubject.next(JSON.parse(savedUser));
-    }
+    this.restoreSession();
   }
 
   login(credentials: { username: string; password: string }): Observable<any> {
@@ -31,18 +28,29 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    this.currentUserSubject.next(null);
+    this.clearSession();
     this.router.navigate(['/login']);
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
+    const token = this.getToken();
+    const hasValidSession = !!token && !!this.currentUserSubject.value && !this.isTokenExpired(token);
+
+    if (!hasValidSession) {
+      this.clearSession();
+    }
+
+    return hasValidSession;
   }
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  }
+
+  clearSession(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    this.currentUserSubject.next(null);
   }
 
   getUser(): any {
@@ -57,5 +65,31 @@ export class AuthService {
   isOperative(): boolean {
     const user = this.getUser();
     return user && user.rol === 'OPERATIVO';
+  }
+
+  private restoreSession(): void {
+    const token = this.getToken();
+    const savedUser = localStorage.getItem('user');
+
+    if (!token || !savedUser || this.isTokenExpired(token)) {
+      this.clearSession();
+      return;
+    }
+
+    try {
+      this.currentUserSubject.next(JSON.parse(savedUser));
+    } catch {
+      // Evita que un dato corrupto en localStorage deje la aplicación en blanco.
+      this.clearSession();
+    }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return typeof payload.exp !== 'number' || payload.exp * 1000 <= Date.now();
+    } catch {
+      return true;
+    }
   }
 }

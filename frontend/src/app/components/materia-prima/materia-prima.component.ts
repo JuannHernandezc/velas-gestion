@@ -115,6 +115,12 @@ import { AuthService } from '../../services/auth.service';
                     >
                       Bajo (Mín. {{ item.stockMinimo | number }})
                     </span>
+                    <span
+                      *ngIf="item.stockMinimo === null || item.stockMinimo === undefined"
+                      class="bg-stone-100 text-stone-500 text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full"
+                    >
+                      Sin mínimo definido
+                    </span>
                   </div>
                 </td>
                 <td class="px-6 py-4 text-right" *ngIf="isAdmin">
@@ -190,7 +196,11 @@ import { AuthService } from '../../services/auth.service';
                </select>
              </div>
 
-             <div class="grid grid-cols-3 gap-3">
+             <div
+               class="grid gap-3"
+               [class.grid-cols-3]="hasStockMinimum"
+               [class.grid-cols-2]="!hasStockMinimum"
+             >
                <div>
                  <label for="unidadMedida" class="block text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Unidad Medida</label>
                  <select 
@@ -223,7 +233,7 @@ import { AuthService } from '../../services/auth.service';
                  />
                </div>
 
-               <div>
+               <div *ngIf="hasStockMinimum">
                  <label for="stockMinimo" class="block text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Stock Mínimo</label>
                  <input 
                    type="number" 
@@ -237,6 +247,20 @@ import { AuthService } from '../../services/auth.service';
                  />
                </div>
              </div>
+
+             <label class="flex items-center gap-2 cursor-pointer text-xs text-stone-600">
+               <input
+                 type="checkbox"
+                 name="hasStockMinimum"
+                 [(ngModel)]="hasStockMinimum"
+                 (change)="onStockMinimumChange()"
+                 class="h-4 w-4 rounded border-stone-300 text-brand-primary focus:ring-brand-primary"
+               />
+               <span>Alertar cuando el stock llegue al mínimo</span>
+             </label>
+             <p *ngIf="!hasStockMinimum" class="-mt-2 text-[10px] text-stone-400">
+               Este insumo conservará su stock, pero no aparecerá en alertas de inventario.
+             </p>
 
              <div>
                <label for="costoTotal" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Costo Total de la Compra ($)</label>
@@ -316,7 +340,14 @@ export class MateriaPrimaComponent implements OnInit {
   // Modal control
   isModalOpen = false;
   editingItem: any = null;
-  formModel = {
+  formModel: {
+    nombre: string;
+    tipo: string;
+    unidadMedida: string;
+    costoTotal: number;
+    stockActual: number;
+    stockMinimo: number | null;
+  } = {
     nombre: '',
     tipo: 'INSUMO_GENERAL',
     unidadMedida: 'GR',
@@ -324,6 +355,7 @@ export class MateriaPrimaComponent implements OnInit {
     stockActual: 0,
     stockMinimo: 10
   };
+  hasStockMinimum = true;
 
   constructor(private http: HttpClient, private authService: AuthService) {
     this.isAdmin = this.authService.isAdmin();
@@ -359,7 +391,7 @@ export class MateriaPrimaComponent implements OnInit {
   }
 
   isStockLow(item: any): boolean {
-    return item.stockActual < item.stockMinimo;
+    return item.stockMinimo !== null && item.stockMinimo !== undefined && item.stockActual < item.stockMinimo;
   }
 
   openModal(item: any = null): void {
@@ -373,6 +405,7 @@ export class MateriaPrimaComponent implements OnInit {
         stockActual: item.stockActual,
         stockMinimo: item.stockMinimo
       };
+      this.hasStockMinimum = item.stockMinimo !== null && item.stockMinimo !== undefined;
     } else {
       this.editingItem = null;
       this.formModel = {
@@ -383,6 +416,7 @@ export class MateriaPrimaComponent implements OnInit {
         stockActual: 0,
         stockMinimo: 10
       };
+      this.hasStockMinimum = true;
     }
     this.isModalOpen = true;
   }
@@ -401,7 +435,7 @@ export class MateriaPrimaComponent implements OnInit {
       unidadMedida: this.formModel.unidadMedida,
       stockActual: this.formModel.stockActual,
       costoUnitario: calculatedUnitCost,
-      stockMinimo: this.formModel.stockMinimo
+      stockMinimo: this.hasStockMinimum ? this.formModel.stockMinimo : null
     };
 
     if (this.editingItem && this.editingItem.id) {
@@ -433,27 +467,33 @@ export class MateriaPrimaComponent implements OnInit {
     const tipo = this.formModel.tipo;
     if (tipo === 'CERA') {
       this.formModel.unidadMedida = 'GR';
-      this.formModel.stockMinimo = 2000;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 2000;
     } else if (tipo === 'ESENCIA') {
       this.formModel.unidadMedida = 'ML';
-      this.formModel.stockMinimo = 200;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 200;
     } else if (tipo === 'ADITIVO') {
       this.formModel.unidadMedida = 'GR';
-      this.formModel.stockMinimo = 200;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 200;
     } else if (tipo === 'PABILO') {
       this.formModel.unidadMedida = 'CM';
-      this.formModel.stockMinimo = 50;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 50;
     } else if (tipo === 'ENVASE') {
       this.formModel.unidadMedida = 'UNIDAD';
-      this.formModel.stockMinimo = 10;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 10;
     } else if (tipo === 'MOLDE') {
       this.formModel.unidadMedida = 'UNIDAD';
-      this.formModel.stockMinimo = 2;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 2;
     } else if (tipo === 'DECORACION') {
       this.formModel.unidadMedida = 'UNIDAD';
-      this.formModel.stockMinimo = 10;
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 10;
     } else if (tipo === 'INSUMO_GENERAL') {
       this.formModel.unidadMedida = 'UNIDAD';
+      if (this.hasStockMinimum) this.formModel.stockMinimo = 10;
+    }
+  }
+
+  onStockMinimumChange(): void {
+    if (this.hasStockMinimum && this.formModel.stockMinimo === null) {
       this.formModel.stockMinimo = 10;
     }
   }
