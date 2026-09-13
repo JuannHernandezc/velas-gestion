@@ -56,15 +56,27 @@ import { AuthService } from '../../services/auth.service';
           </button>
         </div>
 
+        <div class="relative w-full sm:max-w-md">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-stone-400">
+            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+          </span>
+          <input
+            type="search"
+            [(ngModel)]="componentSearchQuery"
+            placeholder="Buscar componente por nombre..."
+            class="w-full bg-white border border-stone-200 rounded-lg py-2 pl-9 pr-4 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-brand-primary transition-colors"
+          />
+        </div>
+
         <!-- Grid of Component Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div *ngIf="componentes.length === 0" class="col-span-full bg-white border border-stone-200 rounded-xl p-12 text-center text-stone-400">
+          <div *ngIf="filteredComponentes.length === 0" class="col-span-full bg-white border border-stone-200 rounded-xl p-12 text-center text-stone-400">
             <i class="fa-solid fa-cubes text-4xl mb-3 block text-stone-300"></i>
-            No hay componentes base registrados.
+            {{ componentes.length === 0 ? 'No hay componentes base registrados.' : 'No se encontraron componentes con esa búsqueda.' }}
           </div>
 
           <div 
-            *ngFor="let comp of componentes" 
+            *ngFor="let comp of filteredComponentes"
             class="bg-white border border-stone-200 rounded-xl p-5 shadow-sm hover:border-brand-primary/30 transition-all flex flex-col justify-between"
           >
             <div>
@@ -120,15 +132,27 @@ import { AuthService } from '../../services/auth.service';
           </button>
         </div>
 
+        <div class="relative w-full sm:max-w-md">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-stone-400">
+            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+          </span>
+          <input
+            type="search"
+            [(ngModel)]="catalogSearchQuery"
+            placeholder="Buscar producto por nombre..."
+            class="w-full bg-white border border-stone-200 rounded-lg py-2 pl-9 pr-4 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:border-brand-primary transition-colors"
+          />
+        </div>
+
         <!-- Grid of Catalog Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          <div *ngIf="catalogo.length === 0" class="col-span-full bg-white border border-stone-200 rounded-xl p-12 text-center text-stone-400">
+          <div *ngIf="filteredCatalogo.length === 0" class="col-span-full bg-white border border-stone-200 rounded-xl p-12 text-center text-stone-400">
             <i class="fa-solid fa-image text-4xl mb-3 block text-stone-300"></i>
-            No hay productos registrados en el catálogo.
+            {{ catalogo.length === 0 ? 'No hay productos registrados en el catálogo.' : 'No se encontraron productos con esa búsqueda.' }}
           </div>
 
           <div 
-            *ngFor="let prod of catalogo" 
+            *ngFor="let prod of filteredCatalogo"
             class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md hover:border-brand-primary/20 transition-all"
           >
             <!-- Card Image -->
@@ -633,6 +657,8 @@ export class FabricacionComponent implements OnInit {
   componentes: any[] = [];
   catalogo: any[] = [];
   materias: any[] = [];
+  componentSearchQuery = '';
+  catalogSearchQuery = '';
   isAdmin = false;
 
   // Component Modal Data
@@ -701,6 +727,20 @@ export class FabricacionComponent implements OnInit {
     if (this.isAdmin) {
       this.http.get<any[]>('http://localhost:3000/api/materia-prima').subscribe(res => this.materias = res);
     }
+  }
+
+  get filteredComponentes(): any[] {
+    return this.filterByName(this.componentes, this.componentSearchQuery);
+  }
+
+  get filteredCatalogo(): any[] {
+    return this.filterByName(this.catalogo, this.catalogSearchQuery);
+  }
+
+  private filterByName(items: any[], query: string): any[] {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return items;
+    return items.filter(item => item.nombre?.toLowerCase().includes(normalizedQuery));
   }
 
   // Component modal handling
