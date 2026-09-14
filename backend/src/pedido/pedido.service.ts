@@ -1,3 +1,4 @@
+import { catalogoInclude, costoReceta, recetaParaEsencia } from '../variantes/variantes';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
@@ -63,123 +64,60 @@ export class PedidoService {
   }
 
   async create(dto: CreatePedidoDto) {
-    if (!dto.detalles || dto.detalles.length === 0) {
-      throw new BadRequestException('El pedido debe tener al menos un producto');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
+    if (!dto.detalles?.length) throw new BadRequestException('El pedido debe tener al menos un producto');
+    return this.prisma.$transaction(async tx => {
       let total = 0;
       let costoTotal = 0;
-
       const detallesData: any[] = [];
-
       for (const item of dto.detalles) {
-        const prod = await tx.catalogoProducto.findUnique({
-          where: { id: item.catalogoProductoId },
-          include: {
-            ensambles: {
-              include: {
-                componenteBase: true,
-              },
-            },
-            ensamblesMateriaPrima: {
-              include: {
-                materiaPrima: true,
-              },
-            },
-          },
-        });
-
-        if (!prod) {
-          throw new NotFoundException(`Producto con ID ${item.catalogoProductoId} no encontrado en el catálogo`);
-        }
-
-        let costoUnitarioProducto = 0;
-
-        if (prod.requiereEnsamble && prod.ensambles) {
+        if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) throw new BadRequestException('La cantidad debe ser un entero positivo');
+        const prod = await tx.catalogoProducto.findUnique({ where: { id: item.catalogoProductoId }, include: catalogoInclude });
+        if (!prod) throw new NotFoundException('Producto no encontrado');
+        const variante = prod.variantes.find(v => v.id === item.varianteId);
+        const requiereVariante = prod.variantes.length > 0 || (prod.requiereEnsamble && prod.ensambles.some(e => e.componenteBase.variantes.length > 0));
+        if ((requiereVariante && !variante) || (item.varianteId && !variante)) throw new BadRequestException(`Selecciona una variante de esencia con precio configurado para ${prod.nombre}`);
+        let costoUnitario = 0;
+        const descripcion: string[] = [];
+        if (prod.requiereEnsamble) {
           for (const ens of prod.ensambles) {
-            const qtyNeeded = ens.cantidadNecesaria * item.cantidad;
-            
-            // Verificar stock del componente
-            if (ens.componenteBase.stockDisponible < qtyNeeded) {
-              throw new BadRequestException(
-                `Stock insuficiente para el componente base "${ens.componenteBase.nombre}". Requerido: ${qtyNeeded}, Disponible: ${ens.componenteBase.stockDisponible}`
-              );
+            const comp = ens.componenteBase;
+            const qty = ens.cantidadNecesaria * item.cantidad;
+            if (comp.variantes.length) {
+              const selected = variante?.selecciones.find(s => s.componenteVariante.componenteBaseId === comp.id);
+              const aroma = comp.variantes.find(v => v.id === selected?.componenteVarianteId);
+              if (!aroma) throw new BadRequestException(`Falta configurar la esencia de ${comp.nombre} en el catálogo`);
+              const updated = await tx.componenteVariante.updateMany({ where: { id: aroma.id, stockDisponible: { gte: qty } }, data: { stockDisponible: { decrement: qty } } });
+              if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente: ${comp.nombre} · ${aroma.esencia.nombre}`);
+              costoUnitario += costoReceta(recetaParaEsencia(comp, aroma.esencia)) * ens.cantidadNecesaria;
+              descripcion.push(`${comp.nombre} · ${aroma.esencia.nombre}`);
+              await tx.componenteBase.update({ where: { id: comp.id }, data: { stockDisponible: { decrement: qty } } });
+            } else {
+              const updated = await tx.componenteBase.updateMany({ where: { id: comp.id, stockDisponible: { gte: qty } }, data: { stockDisponible: { decrement: qty } } });
+              if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente: ${comp.nombre}`);
+              costoUnitario += costoReceta(comp.recetaMaterias) * ens.cantidadNecesaria;
+              descripcion.push(comp.nombre);
             }
-
-            // Descontar stock del componente base
-            await tx.componenteBase.update({
-              where: { id: ens.componenteBaseId },
-              data: {
-                stockDisponible: {
-                  decrement: qtyNeeded,
-                },
-              },
-            });
-
-            costoUnitarioProducto += ens.componenteBase.costoProduccion * ens.cantidadNecesaria;
           }
-
-          for (const ensMateria of prod.ensamblesMateriaPrima) {
-            const qtyNeeded = ensMateria.cantidadNecesaria * item.cantidad;
-
-            if (ensMateria.materiaPrima.stockActual < qtyNeeded) {
-              throw new BadRequestException(
-                `Stock insuficiente para la materia prima "${ensMateria.materiaPrima.nombre}". Requerido: ${qtyNeeded}, Disponible: ${ensMateria.materiaPrima.stockActual}`,
-              );
-            }
-
-            await tx.materiaPrima.update({
-              where: { id: ensMateria.materiaPrimaId },
-              data: {
-                stockActual: {
-                  decrement: qtyNeeded,
-                },
-              },
-            });
-
-            costoUnitarioProducto += ensMateria.materiaPrima.costoUnitario * ensMateria.cantidadNecesaria;
+          for (const m of prod.ensamblesMateriaPrima) {
+            const qty = m.cantidadNecesaria * item.cantidad;
+            const updated = await tx.materiaPrima.updateMany({ where: { id: m.materiaPrimaId, stockActual: { gte: qty } }, data: { stockActual: { decrement: qty } } });
+            if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente: ${m.materiaPrima.nombre}`);
+            costoUnitario += m.materiaPrima.costoUnitario * m.cantidadNecesaria;
           }
         }
-
-        total += prod.precioVenta * item.cantidad;
-        costoTotal += costoUnitarioProducto * item.cantidad;
-
-        detallesData.push({
-          catalogoProductoId: prod.id,
-          cantidad: item.cantidad,
-          precioUnitario: prod.precioVenta,
-          costoUnitario: costoUnitarioProducto,
-        });
+        const precioUnitario = variante?.precioVenta ?? prod.precioVenta;
+        total += precioUnitario * item.cantidad;
+        costoTotal += costoUnitario * item.cantidad;
+        detallesData.push({ catalogoProductoId: prod.id, varianteId: variante?.id,
+          descripcionVariante: variante ? `${variante.nombre}: ${descripcion.join(' / ')}` : descripcion.join(' / ') || null,
+          cantidad: item.cantidad, precioUnitario, costoUnitario });
       }
-
-      const rentabilidad = total - costoTotal;
-
-      const ped = await tx.pedido.create({
-        data: {
-          cliente: dto.cliente,
-          canal: dto.canal,
-          estado: dto.estado ?? 'POR_FABRICAR',
-          total,
-          costoTotal,
-          rentabilidad,
-          detalles: {
-            createMany: {
-              data: detallesData,
-            },
-          },
-        },
-        include: {
-          detalles: {
-            include: {
-              catalogoProducto: true,
-            },
-          },
-        },
-      });
-
-      return ped;
-    });
+      return tx.pedido.create({ data: {
+        cliente: dto.cliente, canal: dto.canal, estado: dto.estado ?? 'POR_FABRICAR',
+        total, costoTotal, rentabilidad: total - costoTotal,
+        detalles: { createMany: { data: detallesData } },
+      }, include: { detalles: { include: { catalogoProducto: true } } } });
+    }, { isolationLevel: 'Serializable' });
   }
 
   async updateEstado(id: number, estado: string) {

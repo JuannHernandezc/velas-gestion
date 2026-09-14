@@ -279,17 +279,22 @@ import { AuthService } from '../../services/auth.service';
 
               <!-- Item rows -->
               <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                <div *ngFor="let item of saleForm.detalles; let i = index" class="flex gap-2 items-center">
+                <div *ngFor="let item of saleForm.detalles; let i = index" class="flex flex-wrap gap-2 items-center">
                   <select 
                     name="prod_{{i}}" 
                     [(ngModel)]="item.catalogoProductoId" 
-                    (change)="onProductChange()"
+                    (change)="item.varianteId = undefined; onProductChange()"
                     required 
                     class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
                   >
                     <option [value]="0" disabled selected>Selecciona producto</option>
-                    <option *ngFor="let p of catalog" [value]="p.id">{{ p.nombre }} ({{ p.precioVenta | currency:'COP':'symbol-narrow':'1.0-0' }})</option>
+                    <option *ngFor="let p of catalog" [value]="p.id">{{ p.nombre }}{{ p.variantes?.length ? ' · Elegir esencia' : '' }}</option>
                   </select>
+                  <select *ngIf="productVariants(item.catalogoProductoId).length" name="variant_{{i}}" [(ngModel)]="item.varianteId" (ngModelChange)="onProductChange()" required aria-label="Esencia de la vela" class="w-full order-last border border-amber-200 rounded-lg p-2 text-xs">
+                    <option [ngValue]="undefined" disabled>Selecciona la esencia / combinación</option>
+                    <option *ngFor="let v of productVariants(item.catalogoProductoId)" [ngValue]="v.id" [disabled]="v.stockDisponible < 1">{{ v.nombre }} · {{ v.descripcion }} · {{ v.precioVenta | currency:'COP':'symbol-narrow':'1.0-0' }} · Stock: {{ v.stockDisponible }}</option>
+                  </select>
+                  <p *ngIf="missingVariantPrices(item.catalogoProductoId)" class="w-full order-last text-xs text-amber-800">Configura las variantes y sus precios en el catálogo antes de vender esta vela.</p>
                   <input 
                     type="number" 
                     name="qty_{{i}}" 
@@ -340,7 +345,7 @@ import { AuthService } from '../../services/auth.service';
             <!-- Footer buttons -->
             <div class="pt-4 border-t border-stone-100 flex justify-end gap-2 shrink-0">
               <button type="button" (click)="closeSaleModal()" class="border border-stone-200 text-stone-600 px-4 py-2 rounded-lg text-sm hover:bg-stone-50 transition-colors cursor-pointer">Cancelar</button>
-              <button type="submit" class="bg-gradient-to-r from-brand-primary to-brand-light text-stone-950 font-semibold px-4 py-2 rounded-lg text-sm transition-all cursor-pointer">Registrar Venta</button>
+              <button type="submit" [disabled]="savingSale" class="disabled:opacity-50 bg-gradient-to-r from-brand-primary to-brand-light text-stone-950 font-semibold px-4 py-2 rounded-lg text-sm transition-all cursor-pointer">Registrar Venta</button>
             </div>
           </form>
         </div>
@@ -373,7 +378,7 @@ import { AuthService } from '../../services/auth.service';
               <ul class="space-y-2 text-xs">
                 <li *ngFor="let det of selectedPed?.detalles" class="flex justify-between items-center bg-stone-50 border border-stone-100 p-2.5 rounded-lg">
                   <div>
-                    <p class="font-bold text-stone-750">{{ det.catalogoProducto?.nombre }}</p>
+                    <p class="font-bold text-stone-750">{{ det.catalogoProducto?.nombre }}</p><p *ngIf="det.descripcionVariante" class="text-xs text-stone-600">{{ det.descripcionVariante }}</p>
                     <p class="text-[10px] text-stone-400">Cantidad: {{ det.cantidad }} x {{ det.precioUnitario | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
                   </div>
                   <span class="font-semibold text-stone-700">
@@ -462,7 +467,7 @@ import { AuthService } from '../../services/auth.service';
               <div class="space-y-2 text-xs">
                 <div *ngFor="let det of receiptPed?.detalles" class="flex justify-between items-start gap-4">
                   <div class="space-y-0.5">
-                    <p class="font-bold text-stone-900 leading-snug">{{ det.catalogoProducto?.nombre }}</p>
+                    <p class="font-bold text-stone-900 leading-snug">{{ det.catalogoProducto?.nombre }}</p><p *ngIf="det.descripcionVariante" class="text-xs text-stone-600">{{ det.descripcionVariante }}</p>
                     <p class="text-[10px] text-stone-400">{{ det.cantidad }} x {{ det.precioUnitario | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
                   </div>
                   <span class="font-semibold text-stone-850 tabular-nums font-mono shrink-0">
@@ -519,10 +524,11 @@ export class VentasComponent implements OnInit {
 
   // New Sale modal Form
   isSaleModalOpen = false;
+  savingSale = false;
   saleForm = {
     cliente: '',
     canal: 'WHATSAPP',
-    detalles: [] as { catalogoProductoId: number; cantidad: number }[]
+    detalles: [] as { catalogoProductoId: number; varianteId?: number; cantidad: number }[]
   };
 
   // Quotation metrics
@@ -584,7 +590,7 @@ export class VentasComponent implements OnInit {
   }
 
   deletePedido(id: number): void {
-    if (confirm('¿Estás seguro de que deseas eliminar este pedido? Se restaurarán los stocks de componentes.')) {
+    if (confirm('¿Estás seguro de que deseas eliminar este pedido? Esta acción elimina el registro y no repone inventario.')) {
       this.http.delete(`http://localhost:3000/api/pedido/${id}`).subscribe({
         next: () => this.loadData(),
         error: (err) => alert(err.error?.message || 'Error al eliminar')
@@ -618,6 +624,14 @@ export class VentasComponent implements OnInit {
     this.onProductChange();
   }
 
+  productVariants(id: number): any[] {
+    return this.catalog.find(p => p.id === Number(id))?.variantes || [];
+  }
+  missingVariantPrices(id: number): boolean {
+    const p = this.catalog.find(p => p.id === Number(id));
+    return !!p?.requiereEnsamble && p.ensambles.some((e: any) => e.componenteBase.variantes?.length) && !p.variantes?.length;
+  }
+
   // Automatically calculate expected profitability on product / quantity change
   onProductChange(): void {
     if (!this.isAdmin) return;
@@ -629,7 +643,9 @@ export class VentasComponent implements OnInit {
       if (item.catalogoProductoId > 0 && item.cantidad > 0) {
         const prod = this.catalog.find(p => p.id === Number(item.catalogoProductoId));
         if (prod) {
-          total += prod.precioVenta * item.cantidad;
+          const variant = prod.variantes?.find((v: any) => v.id === Number(item.varianteId));
+          if (prod.variantes?.length && !variant) continue;
+          total += (variant?.precioVenta ?? prod.precioVenta) * item.cantidad;
           
           // Calculate cost based on assemblies
           let prodCost = 0;
@@ -638,7 +654,8 @@ export class VentasComponent implements OnInit {
               prodCost += (ens.componenteBase?.costoProduccion || 0) * ens.cantidadNecesaria;
             }
           }
-          costoTotal += prodCost * item.cantidad;
+          for (const m of prod.ensamblesMateriaPrima || []) prodCost += (m.materiaPrima?.costoUnitario || 0) * m.cantidadNecesaria;
+          costoTotal += (variant?.costoProduccion ?? prodCost) * item.cantidad;
         }
       }
     }
@@ -650,27 +667,36 @@ export class VentasComponent implements OnInit {
   }
 
   saveSale(): void {
+    if (this.savingSale) return;
     const validItems = this.saleForm.detalles.filter(d => d.catalogoProductoId > 0 && d.cantidad > 0);
     if (validItems.length === 0) {
       alert('Debes agregar al menos un producto válido.');
       return;
     }
 
+    if (validItems.some(item => this.missingVariantPrices(item.catalogoProductoId) || (this.productVariants(item.catalogoProductoId).length && !this.productVariants(item.catalogoProductoId).some(v => v.id === Number(item.varianteId))))) {
+      alert('Selecciona una variante con precio configurado para cada vela.');
+      return;
+    }
     const payload = {
       cliente: this.saleForm.cliente,
       canal: this.saleForm.canal,
       detalles: validItems.map(item => ({
         catalogoProductoId: Number(item.catalogoProductoId),
+        varianteId: item.varianteId ? Number(item.varianteId) : undefined,
         cantidad: Number(item.cantidad)
       }))
     };
 
+    this.savingSale = true;
     this.http.post('http://localhost:3000/api/pedido', payload).subscribe({
       next: () => {
         this.loadData();
+        this.savingSale = false;
         this.closeSaleModal();
       },
       error: (err) => {
+        this.savingSale = false;
         alert(err.error?.message || 'Error al guardar la venta. Verifica el stock disponible.');
       }
     });

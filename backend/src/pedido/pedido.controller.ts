@@ -1,3 +1,4 @@
+import { sinCostos } from '../variantes/variantes';
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { PedidoService } from './pedido.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
@@ -26,8 +27,9 @@ export class PedidoController {
   }
 
   @Post()
-  async create(@Body() dto: CreatePedidoDto) {
-    return this.service.create(dto);
+  async create(@Body() dto: CreatePedidoDto, @Request() req) {
+    const pedido = await this.service.create(dto);
+    return req.user.rol === 'OPERATIVO' ? sinCostos(pedido) : pedido;
   }
 
   @Put(':id/estado')

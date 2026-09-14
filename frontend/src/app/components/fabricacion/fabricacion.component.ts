@@ -93,7 +93,14 @@ import { AuthService } from '../../services/auth.service';
                   <button (click)="deleteComp(comp.id)" class="p-1 text-stone-400 hover:text-red-500 transition-colors cursor-pointer" title="Eliminar"><i class="fa-solid fa-trash text-xs"></i></button>
                 </div>
               </div>
-              <p class="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mt-1">Receta de Producción</p>
+              <p class="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mt-1">Receta compartida · esencia de referencia</p>
+              <div class="mt-3 space-y-2 text-xs">
+                <div *ngFor="let v of comp.variantes" class="bg-amber-50 rounded-lg p-2">
+                  <b>{{ v.esencia.nombre }}</b> · {{ v.stockDisponible }} unidades
+                  <span *ngIf="isAdmin" class="block">Costo: {{ v.costoProduccion | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                </div>
+                <button *ngIf="isAdmin" (click)="openAromas(comp)" class="text-amber-800 border border-amber-200 rounded-lg px-3 py-2">Esencias y fabricación</button>
+              </div>
 
               <!-- Recipe Materials List -->
               <ul class="mt-3 space-y-1.5 text-xs text-stone-600">
@@ -177,8 +184,15 @@ import { AuthService } from '../../services/auth.service';
             <div class="p-4 flex-1 flex flex-col justify-between">
               <div>
                 <h4 class="font-bold text-stone-800 text-sm tracking-tight line-clamp-1">{{ prod.nombre }}</h4>
+                <div *ngFor="let v of prod.variantes" class="mt-2 p-2 bg-amber-50 rounded-lg text-xs">
+                  <b>{{ v.nombre }}</b><p>{{ v.descripcion }}</p>
+                  <p>{{ v.precioVenta | currency:'COP':'symbol-narrow':'1.0-0' }} · {{ v.stockDisponible }} disponibles</p>
+                  <p *ngIf="isAdmin">Costo: {{ v.costoProduccion | currency:'COP':'symbol-narrow':'1.0-0' }}</p>
+                  <button *ngIf="isAdmin" (click)="openCatalogVariant(prod, v)" class="underline mt-1">Editar variante</button>
+                </div>
+                <button *ngIf="isAdmin && hasAromas(prod)" (click)="openCatalogVariant(prod)" class="text-xs text-amber-800 underline mt-3">Agregar variante y precio</button>
                 <div class="flex justify-between items-center mt-2.5">
-                  <span class="text-xs text-stone-500 font-medium">Precio Venta:</span>
+                  <span class="text-xs text-stone-500 font-medium">{{ prod.variantes?.length ? 'Precio de referencia:' : 'Precio Venta:' }}</span>
                   <span class="text-sm font-bold text-stone-800">{{ prod.precioVenta | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
                 </div>
               </div>
@@ -214,6 +228,58 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
+
+      <div *ngIf="aromaComp" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60">
+        <div class="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4">
+          <h3 class="font-bold">Esencias y fabricación · {{ aromaComp.nombre }}</h3>
+          <p class="text-xs text-stone-500">Cada esencia usa la misma receta y tiene su propio stock. Fabricar descuenta las materias primas.</p>
+          <form (ngSubmit)="addAroma()" class="space-y-2 border-b pb-4">
+            <label for="newAroma" class="text-sm">Agregar esencia compatible con la receta</label>
+            <select id="newAroma" name="newAroma" [(ngModel)]="newAromaId" required class="w-full border rounded-lg p-2">
+              <option [ngValue]="0" disabled>Selecciona esencia</option>
+              <option *ngFor="let m of availableAromas()" [ngValue]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
+            </select>
+            <button [disabled]="variantBusy || !newAromaId" class="bg-amber-100 rounded-lg p-2 text-sm disabled:opacity-50">Agregar esencia</button>
+          </form>
+          <form (ngSubmit)="fabricarAroma()" class="space-y-3">
+            <label for="productionAroma" class="text-sm">Esencia a fabricar</label>
+            <select id="productionAroma" name="productionAroma" [(ngModel)]="productionVariantId" required class="w-full border rounded-lg p-2">
+              <option [ngValue]="0" disabled>Selecciona variante</option>
+              <option *ngFor="let v of aromaComp.variantes" [ngValue]="v.id">{{ v.esencia.nombre }} · Stock: {{ v.stockDisponible }}</option>
+            </select>
+            <label for="productionQty" class="block text-sm">Unidades a fabricar</label>
+            <input id="productionQty" name="productionQty" type="number" min="1" step="1" required [(ngModel)]="productionQty" class="w-full border rounded-lg p-2" />
+            <button [disabled]="variantBusy || !productionVariantId" class="bg-stone-900 text-white rounded-lg p-2 disabled:opacity-50">Fabricar y actualizar stock</button>
+          </form>
+          <p *ngIf="variantMessage" role="status" class="text-sm text-amber-900">{{ variantMessage }}</p>
+          <button (click)="aromaComp = null" [disabled]="variantBusy" class="border rounded-lg px-4 py-2">Cerrar</button>
+        </div>
+      </div>
+      <div *ngIf="variantProd" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60">
+        <form (ngSubmit)="saveCatalogVariant()" class="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4">
+          <h3 class="font-bold">Variante de venta · {{ variantProd.nombre }}</h3>
+          <label class="block text-sm">Nombre de la variante
+            <input name="variantName" [(ngModel)]="catalogVariantForm.nombre" required class="w-full border rounded-lg p-2 mt-1" placeholder="Ej. Lavanda" />
+          </label>
+          <div *ngFor="let ens of aromaEnsambles(variantProd)">
+            <label class="text-sm">{{ ens.componenteBase.nombre }} · esencia
+              <select name="selection_{{ens.componenteBaseId}}" [(ngModel)]="catalogSelections[ens.componenteBaseId]" required class="w-full border rounded-lg p-2 mt-1">
+                <option [ngValue]="0" disabled>Selecciona esencia</option>
+                <option *ngFor="let v of ens.componenteBase.variantes" [ngValue]="v.id">{{ v.esencia.nombre }}</option>
+              </select>
+            </label>
+          </div>
+          <p class="text-sm">Costo estimado: <b>{{ catalogVariantCost() | currency:'COP':'symbol-narrow':'1.0-0' }}</b></p>
+          <label class="block text-sm">Precio de venta para esta combinación
+            <input name="variantPrice" type="number" min="0" required [(ngModel)]="catalogVariantForm.precioVenta" class="w-full border rounded-lg p-2 mt-1" />
+          </label>
+          <p *ngIf="variantMessage" role="alert" class="text-sm text-amber-900">{{ variantMessage }}</p>
+          <div class="flex gap-2">
+            <button type="button" (click)="variantProd = null" [disabled]="variantBusy" class="border rounded-lg p-2">Cancelar</button>
+            <button [disabled]="variantBusy" class="bg-stone-900 text-white rounded-lg p-2 disabled:opacity-50">Guardar variante</button>
+          </div>
+        </form>
+      </div>
       <!-- Modal 1: Componente Base (Admin Only) -->
       <div *ngIf="isCompModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-sm">
         <div class="w-full max-w-lg bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden animate-zoom-in flex flex-col max-h-[90vh]">
@@ -230,7 +296,7 @@ import { AuthService } from '../../services/auth.service';
 
             <div>
               <label for="compStock" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Stock Inicial Disponible</label>
-              <input type="number" id="compStock" name="compStock" [(ngModel)]="compForm.stockDisponible" required min="0" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
+              <input type="number" id="compStock" name="compStock" [(ngModel)]="compForm.stockDisponible" [readonly]="editingComp?.variantes?.length > 0" required min="0" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
             </div>
 
             <!-- Mold Assistant Panel -->
@@ -653,6 +719,83 @@ import { AuthService } from '../../services/auth.service';
   `]
 })
 export class FabricacionComponent implements OnInit {
+  aromaComp: any = null;
+  variantProd: any = null;
+  newAromaId = 0;
+  productionVariantId = 0;
+  productionQty = 1;
+  variantBusy = false;
+  variantMessage = '';
+  catalogVariantForm: { id?: number; nombre: string; precioVenta: number } = { nombre: '', precioVenta: 0 };
+  catalogSelections: Record<number, number> = {};
+
+  openAromas(comp: any): void {
+    this.aromaComp = comp;
+    this.newAromaId = 0;
+    this.productionVariantId = comp.variantes?.[0]?.id || 0;
+    this.productionQty = 1;
+    this.variantMessage = '';
+  }
+  availableAromas(): any[] {
+    const reference = this.aromaComp?.recetaMaterias.find((r: any) => r.materiaPrima.tipo === 'ESENCIA');
+    return this.materias.filter(m => m.tipo === 'ESENCIA' && m.unidadMedida === reference?.materiaPrima.unidadMedida && !this.aromaComp.variantes.some((v: any) => v.esenciaId === m.id));
+  }
+  refreshAromas(message: string): void {
+    this.http.get<any>(`http://localhost:3000/api/componente-base/${this.aromaComp.id}`).subscribe({
+      next: comp => { this.aromaComp = comp; this.variantBusy = false; this.variantMessage = message; this.loadData(); },
+      error: () => { this.variantBusy = false; this.variantMessage = 'Operación completada. Cierra y vuelve a abrir para actualizar los datos.'; }
+    });
+  }
+  addAroma(): void {
+    if (this.variantBusy || !this.newAromaId) return;
+    this.variantBusy = true;
+    this.http.post(`http://localhost:3000/api/componente-base/${this.aromaComp.id}/variantes`, { esenciaId: Number(this.newAromaId) }).subscribe({
+      next: () => { this.newAromaId = 0; this.refreshAromas('Esencia agregada con stock cero.'); },
+      error: err => { this.variantBusy = false; this.variantMessage = err.error?.message || 'No se pudo agregar la esencia'; }
+    });
+  }
+  fabricarAroma(): void {
+    if (this.variantBusy || !this.productionVariantId || !Number.isInteger(this.productionQty) || this.productionQty < 1) return;
+    this.variantBusy = true;
+    this.http.post(`http://localhost:3000/api/componente-base/${this.aromaComp.id}/fabricar`, { varianteId: Number(this.productionVariantId), cantidad: this.productionQty }).subscribe({
+      next: () => this.refreshAromas('Fabricación registrada y materias primas descontadas.'),
+      error: err => { this.variantBusy = false; this.variantMessage = err.error?.message || 'No se pudo fabricar'; }
+    });
+  }
+  aromaEnsambles(prod: any): any[] {
+    return (prod?.ensambles || []).filter((e: any) => e.componenteBase.variantes?.length);
+  }
+  hasAromas(prod: any): boolean { return prod.requiereEnsamble && this.aromaEnsambles(prod).length > 0; }
+  openCatalogVariant(prod: any, variant: any = null): void {
+    this.variantProd = prod;
+    this.variantMessage = '';
+    this.catalogVariantForm = { id: variant?.id, nombre: variant?.nombre || '', precioVenta: variant?.precioVenta ?? prod.precioVenta };
+    this.catalogSelections = {};
+    for (const e of this.aromaEnsambles(prod)) {
+      this.catalogSelections[e.componenteBaseId] = variant?.selecciones.find((s: any) => s.componenteVariante.componenteBaseId === e.componenteBaseId)?.componenteVarianteId || 0;
+    }
+  }
+  catalogVariantCost(): number {
+    if (!this.variantProd) return 0;
+    let total = 0;
+    for (const e of this.variantProd.ensambles) {
+      const v = e.componenteBase.variantes.find((v: any) => v.id === Number(this.catalogSelections[e.componenteBaseId]));
+      total += (v?.costoProduccion ?? (e.componenteBase.variantes.length ? 0 : e.componenteBase.costoProduccion)) * e.cantidadNecesaria;
+    }
+    for (const m of this.variantProd.ensamblesMateriaPrima || []) total += m.materiaPrima.costoUnitario * m.cantidadNecesaria;
+    return total;
+  }
+  saveCatalogVariant(): void {
+    if (this.variantBusy) return;
+    const ids = this.aromaEnsambles(this.variantProd).map(e => Number(this.catalogSelections[e.componenteBaseId]));
+    if (ids.some(id => !id)) { this.variantMessage = 'Selecciona una esencia para cada componente.'; return; }
+    this.variantBusy = true;
+    this.http.post(`http://localhost:3000/api/catalogo/${this.variantProd.id}/variantes`, { ...this.catalogVariantForm, componenteVarianteIds: ids }).subscribe({
+      next: () => { this.variantBusy = false; this.variantProd = null; this.loadData(); },
+      error: err => { this.variantBusy = false; this.variantMessage = err.error?.message || 'No se pudo guardar'; }
+    });
+  }
+
   activeTab = 'componentes';
   componentes: any[] = [];
   catalogo: any[] = [];

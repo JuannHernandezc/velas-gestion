@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { componenteInclude, presentarComponente, recetaParaEsencia, sinCostos } from '../variantes/variantes';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateComponenteBaseDto } from './dto/create-componente-base.dto';
 
@@ -21,69 +22,53 @@ export class ComponenteBaseService {
   }
 
   async findAll(rolUser: string) {
-    const list = await this.prisma.componenteBase.findMany({
-      include: {
-        recetaMaterias: {
-          include: {
-            materiaPrima: true,
-          },
-        },
-      },
-      orderBy: { id: 'asc' },
-    });
-
-    if (rolUser === 'OPERATIVO') {
-      return list.map(item => {
-        // Ocultar costo de producción
-        const { costoProduccion, recetaMaterias, ...rest } = item;
-        // Ocultar costos dentro de la materia prima en la receta
-        const safeRecipe = recetaMaterias.map(rm => {
-          const { materiaPrima, ...rmRest } = rm;
-          const { costoUnitario, ...mpRest } = materiaPrima;
-          return {
-            ...rmRest,
-            materiaPrima: mpRest,
-          };
-        });
-        return {
-          ...rest,
-          recetaMaterias: safeRecipe,
-        };
-      });
-    }
-    return list;
+    const items = await this.prisma.componenteBase.findMany({ include: componenteInclude, orderBy: { id: 'asc' } });
+    const result = items.map(presentarComponente);
+    return rolUser === 'OPERATIVO' ? sinCostos(result) : result;
   }
 
   async findOne(id: number, rolUser: string) {
-    const item = await this.prisma.componenteBase.findUnique({
-      where: { id },
-      include: {
-        recetaMaterias: {
-          include: {
-            materiaPrima: true,
-          },
-        },
-      },
-    });
-    if (!item) {
-      throw new NotFoundException('Componente base no encontrado');
-    }
-    if (rolUser === 'OPERATIVO') {
-      const { costoProduccion, recetaMaterias, ...rest } = item;
-      const safeRecipe = recetaMaterias.map(rm => {
-        const { materiaPrima, ...rmRest } = rm;
-        const { costoUnitario, ...mpRest } = materiaPrima;
-        return {
-          ...rmRest,
-          materiaPrima: mpRest,
-        };
-      });
-      return {
-        ...rest,
-        recetaMaterias: safeRecipe,
-      };
-    }
-    return item;
+    const item = await this.prisma.componenteBase.findUnique({ where: { id }, include: componenteInclude });
+    if (!item) throw new NotFoundException('Componente base no encontrado');
+    const result = presentarComponente(item);
+    return rolUser === 'OPERATIVO' ? sinCostos(result) : result;
+  }
+
+  async addVariante(id: number, esenciaId: number) {
+    return this.prisma.$transaction(async tx => {
+      const comp = await tx.componenteBase.findUnique({ where: { id }, include: componenteInclude });
+      const esencia = await tx.materiaPrima.findUnique({ where: { id: esenciaId } });
+      if (!comp || !esencia) throw new NotFoundException('Componente o esencia no encontrado');
+      recetaParaEsencia(comp, esencia);
+      if (comp.variantes.some(v => v.esenciaId === esenciaId)) throw new ConflictException('Esta esencia ya existe en el componente');
+      // Adoptar el stock previo en su aroma original al activar variantes.
+      if (!comp.variantes.length) {
+        const original = comp.recetaMaterias.find(r => r.materiaPrima.tipo === 'ESENCIA')!;
+        await tx.componenteVariante.create({ data: { componenteBaseId: id, esenciaId: original.materiaPrimaId, stockDisponible: comp.stockDisponible } });
+        if (original.materiaPrimaId === esenciaId) return;
+      }
+      return tx.componenteVariante.create({ data: { componenteBaseId: id, esenciaId } });
+    }, { isolationLevel: 'Serializable' });
+  }
+
+  async fabricar(id: number, varianteId: number, cantidad: number) {
+    return this.prisma.$transaction(async tx => {
+      const comp = await tx.componenteBase.findUnique({ where: { id }, include: componenteInclude });
+      const variante = comp?.variantes.find(v => v.id === varianteId);
+      if (!comp || !variante) throw new BadRequestException('Selecciona una variante de este componente');
+      const receta = recetaParaEsencia(comp, variante.esencia);
+      for (const r of receta) {
+        const consumo = r.cantidadNecesaria * cantidad;
+        const updated = await tx.materiaPrima.updateMany({
+          where: { id: r.materiaPrima.id, stockActual: { gte: consumo } },
+          data: { stockActual: { decrement: consumo } },
+        });
+        if (updated.count !== 1) throw new BadRequestException(`Stock insuficiente de ${r.materiaPrima.nombre}`);
+      }
+      await tx.componenteVariante.update({ where: { id: varianteId }, data: { stockDisponible: { increment: cantidad } } });
+      await tx.componenteBase.update({ where: { id }, data: { stockDisponible: { increment: cantidad } } });
+      return { fabricadas: cantidad };
+    }, { isolationLevel: 'Serializable' });
   }
 
   async create(dto: CreateComponenteBaseDto) {
@@ -119,6 +104,10 @@ export class ComponenteBaseService {
         });
       }
 
+      const recetaGuardada = await tx.recetaComponente.findMany({ where: { componenteBaseId: comp.id }, include: { materiaPrima: true } });
+      const aromas = recetaGuardada.filter(r => r.materiaPrima.tipo === 'ESENCIA');
+      if (aromas.length === 1) await tx.componenteVariante.create({ data: { componenteBaseId: comp.id, esenciaId: aromas[0].materiaPrimaId, stockDisponible: dto.stockDisponible } });
+
       return tx.componenteBase.findUnique({
         where: { id: comp.id },
         include: {
@@ -150,6 +139,18 @@ export class ComponenteBaseService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const variantes = await tx.componenteVariante.findMany({ where: { componenteBaseId: id }, include: { esencia: true } });
+      if (variantes.length && dto.stockDisponible !== undefined && dto.stockDisponible !== comp.stockDisponible) {
+        throw new BadRequestException('El stock por esencia se incrementa desde Fabricar');
+      }
+      if (dto.receta && variantes.length) {
+        const recetaMaterias = await Promise.all(dto.receta.map(async r => {
+          const materiaPrima = await tx.materiaPrima.findUnique({ where: { id: Number(r.materiaPrimaId) } });
+          if (!materiaPrima) throw new NotFoundException('Materia prima no encontrada');
+          return { ...r, materiaPrima };
+        }));
+        for (const v of variantes) recetaParaEsencia({ recetaMaterias }, v.esencia);
+      }
       let costoProduccion = comp.costoProduccion;
       if (dto.receta) {
         costoProduccion = await this.calculateCost(dto.receta);

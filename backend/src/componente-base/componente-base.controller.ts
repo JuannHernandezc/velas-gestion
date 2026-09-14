@@ -1,3 +1,4 @@
+import { CreateVarianteDto, FabricarVarianteDto } from './dto/variante.dto';
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { ComponenteBaseService } from './componente-base.service';
 import { CreateComponenteBaseDto } from './dto/create-componente-base.dto';
@@ -30,6 +31,18 @@ export class ComponenteBaseController {
   @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: Partial<CreateComponenteBaseDto>) {
     return this.service.update(id, dto);
+  }
+
+  @Roles('ADMIN')
+  @Post(':id/variantes')
+  addVariante(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateVarianteDto) {
+    return this.service.addVariante(id, dto.esenciaId);
+  }
+
+  @Roles('ADMIN')
+  @Post(':id/fabricar')
+  fabricar(@Param('id', ParseIntPipe) id: number, @Body() dto: FabricarVarianteDto) {
+    return this.service.fabricar(id, dto.varianteId, dto.cantidad);
   }
 
   @Roles('ADMIN')

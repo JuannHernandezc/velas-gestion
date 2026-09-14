@@ -26,6 +26,7 @@ model MateriaPrima {
   stockMinimo   Float?             // Umbral opcional para alertas de stock bajo
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  variantesEsencia ComponenteVariante[]
   recetas       RecetaComponente[]
   ensamblesDirectos EstructuraEnsambleMateriaPrima[]
 }
@@ -40,6 +41,7 @@ model ComponenteBase {
   porcentajeEsencia Float?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  variantes       ComponenteVariante[]
   recetaMaterias  RecetaComponente[]
   ensambles       EstructuraEnsamble[]
 }
@@ -67,6 +69,7 @@ model CatalogoProducto {
   updatedAt        DateTime             @updatedAt
   ensambles        EstructuraEnsamble[]
   ensamblesMateriaPrima EstructuraEnsambleMateriaPrima[]
+  variantes        CatalogoVariante[]
   detallesPedido   DetallePedido[]
 }
 
@@ -116,13 +119,16 @@ model DetallePedido {
   pedido             Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
   catalogoProductoId Int
   catalogoProducto   CatalogoProducto @relation(fields: [catalogoProductoId], references: [id], onDelete: Restrict)
+  varianteId         Int?
+  variante           CatalogoVariante? @relation(fields: [varianteId], references: [id], onDelete: Restrict)
+  descripcionVariante String?
   cantidad           Int
   precioUnitario     Float            // Precio al momento de la venta
   costoUnitario      Float            // Costo de fabricación al momento de la venta
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  @@unique([pedidoId, catalogoProductoId])
+  @@index([pedidoId, catalogoProductoId])
 }
 
 model Factura {
@@ -136,4 +142,36 @@ model Factura {
   descripcion   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// La esencia de la receta es una referencia de cantidad/unidad; cada variante la sustituye.
+model ComponenteVariante {
+  id Int @id @default(autoincrement())
+  componenteBaseId Int
+  componenteBase ComponenteBase @relation(fields: [componenteBaseId], references: [id], onDelete: Cascade)
+  esenciaId Int
+  esencia MateriaPrima @relation(fields: [esenciaId], references: [id], onDelete: Restrict)
+  stockDisponible Float @default(0)
+  selecciones SeleccionVariante[]
+  @@unique([componenteBaseId, esenciaId])
+}
+
+model CatalogoVariante {
+  id Int @id @default(autoincrement())
+  catalogoProductoId Int
+  catalogoProducto CatalogoProducto @relation(fields: [catalogoProductoId], references: [id], onDelete: Cascade)
+  nombre String
+  precioVenta Float
+  selecciones SeleccionVariante[]
+  detalles DetallePedido[]
+  @@unique([catalogoProductoId, nombre])
+}
+
+model SeleccionVariante {
+  id Int @id @default(autoincrement())
+  catalogoVarianteId Int
+  catalogoVariante CatalogoVariante @relation(fields: [catalogoVarianteId], references: [id], onDelete: Cascade)
+  componenteVarianteId Int
+  componenteVariante ComponenteVariante @relation(fields: [componenteVarianteId], references: [id], onDelete: Restrict)
+  @@unique([catalogoVarianteId, componenteVarianteId])
 }

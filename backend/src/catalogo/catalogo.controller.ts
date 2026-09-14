@@ -1,3 +1,4 @@
+import { VarianteCatalogoDto } from './dto/variante-catalogo.dto';
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { CatalogoService } from './catalogo.service';
 import { CreateCatalogoDto } from './dto/create-catalogo.dto';
@@ -30,6 +31,12 @@ export class CatalogoController {
   @Put(':id')
   async update(@Param('id', ParseIntPipe) id: number, @Body() dto: Partial<CreateCatalogoDto>) {
     return this.service.update(id, dto);
+  }
+
+  @Roles('ADMIN')
+  @Post(':id/variantes')
+  saveVariante(@Param('id', ParseIntPipe) id: number, @Body() dto: VarianteCatalogoDto) {
+    return this.service.saveVariante(id, dto);
   }
 
   @Roles('ADMIN')

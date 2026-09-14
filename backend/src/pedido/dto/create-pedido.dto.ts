@@ -1,12 +1,21 @@
-import { IsNotEmpty, IsString, IsIn, IsArray, ValidateNested, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsIn, IsArray, ValidateNested, IsOptional, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class DetallePedidoDto {
   @IsNotEmpty()
+  @IsInt()
+  @Min(1)
   catalogoProductoId: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  varianteId?: number;
 
   @IsNotEmpty()
   @Type(() => Number)
+  @IsInt()
+  @Min(1)
   cantidad: number;
 }
 
