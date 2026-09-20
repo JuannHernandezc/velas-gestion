@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { coincideBusqueda } from '../../utils/search.utils';
 
 @Component({
   selector: 'app-materia-prima',
@@ -384,8 +385,7 @@ export class MateriaPrimaComponent implements OnInit {
       list = list.filter(item => item.tipo === this.selectedTypeFilter);
     }
     if (this.searchQuery) {
-      const query = this.searchQuery.toLowerCase();
-      list = list.filter(item => item.nombre.toLowerCase().includes(query));
+      list = list.filter(item => coincideBusqueda(item.nombre, this.searchQuery));
     }
     return list;
   }

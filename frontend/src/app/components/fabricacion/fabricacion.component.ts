@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { coincideBusqueda } from '../../utils/search.utils';
 
 @Component({
   selector: 'app-fabricacion',
@@ -901,9 +902,7 @@ export class FabricacionComponent implements OnInit {
   }
 
   private filterByName(items: any[], query: string): any[] {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return items;
-    return items.filter(item => item.nombre?.toLowerCase().includes(normalizedQuery));
+    return items.filter(item => coincideBusqueda(item.nombre, query));
   }
 
   esenciaPredeterminada(comp: any): any | null {

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { coincideBusqueda } from '../../utils/search.utils';
 
 @Component({
   selector: 'app-contabilidad',
@@ -412,11 +413,10 @@ export class ContabilidadComponent implements OnInit {
       }
       // Search term
       if (this.searchQuery.trim() !== '') {
-        const query = this.searchQuery.toLowerCase();
-        const provMatch = f.proveedor?.toLowerCase().includes(query);
-        const buyerMatch = f.comprador?.toLowerCase().includes(query);
-        const descMatch = f.descripcion?.toLowerCase().includes(query);
-        const refMatch = f.numeroFactura?.toLowerCase().includes(query);
+        const provMatch = coincideBusqueda(f.proveedor, this.searchQuery);
+        const buyerMatch = coincideBusqueda(f.comprador, this.searchQuery);
+        const descMatch = coincideBusqueda(f.descripcion, this.searchQuery);
+        const refMatch = coincideBusqueda(f.numeroFactura, this.searchQuery);
         return provMatch || buyerMatch || descMatch || refMatch;
       }
       return true;
