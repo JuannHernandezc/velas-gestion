@@ -39,6 +39,7 @@ model ComponenteBase {
   pesoAgua        Float?
   tipoVela        String?
   porcentajeEsencia Float?
+  imagenUrl       String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   variantes       ComponenteVariante[]

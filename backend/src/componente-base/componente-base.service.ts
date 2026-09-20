@@ -91,6 +91,7 @@ export class ComponenteBaseService {
           pesoAgua: dto.pesoAgua,
           tipoVela: dto.tipoVela,
           porcentajeEsencia: dto.porcentajeEsencia,
+          imagenUrl: dto.imagenUrl,
         },
       });
 
@@ -179,6 +180,7 @@ export class ComponenteBaseService {
           pesoAgua: dto.pesoAgua !== undefined ? dto.pesoAgua : comp.pesoAgua,
           tipoVela: dto.tipoVela !== undefined ? dto.tipoVela : comp.tipoVela,
           porcentajeEsencia: dto.porcentajeEsencia !== undefined ? dto.porcentajeEsencia : comp.porcentajeEsencia,
+          imagenUrl: dto.imagenUrl !== undefined ? dto.imagenUrl : comp.imagenUrl,
         },
       });
 

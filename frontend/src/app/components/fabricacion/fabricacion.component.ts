@@ -77,9 +77,16 @@ import { AuthService } from '../../services/auth.service';
 
           <div 
             *ngFor="let comp of filteredComponentes"
-            class="bg-white border border-stone-200 rounded-xl p-5 shadow-sm hover:border-brand-primary/30 transition-all flex flex-col justify-between"
+            class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden hover:border-brand-primary/30 transition-all flex flex-col justify-between"
           >
-            <div>
+            <div class="h-36 bg-stone-100 relative overflow-hidden flex items-center justify-center">
+              <img *ngIf="comp.imagenUrl" [src]="comp.imagenUrl" [alt]="comp.nombre" class="w-full h-full object-cover" />
+              <div *ngIf="!comp.imagenUrl" class="text-stone-300 flex flex-col items-center gap-1">
+                <i class="fa-regular fa-image text-3xl"></i>
+                <span class="text-[10px] uppercase font-semibold tracking-wider">Sin Imagen</span>
+              </div>
+            </div>
+            <div class="p-5">
               <div class="flex justify-between items-start gap-2">
                 <div>
                   <h4 class="font-bold text-stone-800 text-sm tracking-tight">{{ comp.nombre }}</h4>
@@ -118,7 +125,7 @@ import { AuthService } from '../../services/auth.service';
               </ul>
             </div>
 
-            <div class="mt-5 pt-4 border-t border-stone-100 flex justify-between items-center text-xs">
+            <div class="mx-5 mb-5 pt-4 border-t border-stone-100 flex justify-between items-center text-xs">
               <div>
                 <p class="text-stone-400 font-medium">Stock disponible:</p>
                 <p class="font-bold text-stone-700 mt-0.5">{{ comp.stockDisponible | number }} {{ formatUnidadMedida('UNIDAD', comp.stockDisponible) }}</p>
@@ -299,6 +306,11 @@ import { AuthService } from '../../services/auth.service';
             <div>
               <label for="compNombre" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Nombre de la pieza</label>
               <input type="text" id="compNombre" name="compNombre" [(ngModel)]="compForm.nombre" required placeholder="Ej. Base de Oso de Cera Neutra" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
+            </div>
+
+            <div>
+              <label for="compImg" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">URL de Imagen</label>
+              <input type="text" id="compImg" name="compImg" [(ngModel)]="compForm.imagenUrl" placeholder="http://..." class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
             </div>
 
             <div>
@@ -816,6 +828,7 @@ export class FabricacionComponent implements OnInit {
   editingComp: any = null;
   compForm = {
     nombre: '',
+    imagenUrl: '',
     stockDisponible: 0,
     receta: [] as { materiaPrimaId: number; cantidadNecesaria: number }[]
   };
@@ -912,6 +925,7 @@ export class FabricacionComponent implements OnInit {
       }));
       this.compForm = {
         nombre: comp.nombre,
+        imagenUrl: comp.imagenUrl || '',
         stockDisponible: comp.stockDisponible,
         receta: recipeRows
       };
@@ -960,6 +974,7 @@ export class FabricacionComponent implements OnInit {
       this.useMold = true;
       this.compForm = {
         nombre: '',
+        imagenUrl: '',
         stockDisponible: 0,
         receta: []
       };
@@ -1003,6 +1018,7 @@ export class FabricacionComponent implements OnInit {
       }));
     const payload = {
       nombre: this.compForm.nombre,
+      imagenUrl: this.compForm.imagenUrl,
       stockDisponible: this.compForm.stockDisponible,
       receta: validRecipe,
       pesoAgua: this.useMold ? this.moldParams.pesoAgua : null,

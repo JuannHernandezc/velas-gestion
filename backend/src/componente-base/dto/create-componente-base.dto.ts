@@ -42,4 +42,8 @@ export class CreateComponenteBaseDto {
   @Min(1)
   @Max(20)
   porcentajeEsencia?: number;
+
+  @IsOptional()
+  @IsString()
+  imagenUrl?: string;
 }
