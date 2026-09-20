@@ -65,6 +65,47 @@ async function main() {
     },
   });
 
+  // Esencias compatibles para probar las variantes de un mismo componente.
+  // Todas usan ML, igual que la esencia de referencia de las recetas semilla.
+  await prisma.materiaPrima.upsert({
+    where: { nombre: 'Esencia de Chocolate' },
+    update: { tipo: 'ESENCIA', stockMinimo: 200 },
+    create: {
+      nombre: 'Esencia de Chocolate',
+      tipo: 'ESENCIA',
+      unidadMedida: 'ML',
+      costoUnitario: 0.85,
+      stockActual: 1000,
+      stockMinimo: 200,
+    },
+  });
+
+  await prisma.materiaPrima.upsert({
+    where: { nombre: 'Esencia de Lavanda' },
+    update: { tipo: 'ESENCIA', stockMinimo: 200 },
+    create: {
+      nombre: 'Esencia de Lavanda',
+      tipo: 'ESENCIA',
+      unidadMedida: 'ML',
+      costoUnitario: 0.9,
+      stockActual: 1000,
+      stockMinimo: 200,
+    },
+  });
+
+  await prisma.materiaPrima.upsert({
+    where: { nombre: 'Esencia de Coco' },
+    update: { tipo: 'ESENCIA', stockMinimo: 200 },
+    create: {
+      nombre: 'Esencia de Coco',
+      tipo: 'ESENCIA',
+      unidadMedida: 'ML',
+      costoUnitario: 0.88,
+      stockActual: 1000,
+      stockMinimo: 200,
+    },
+  });
+
   const pabilo = await prisma.materiaPrima.upsert({
     where: { nombre: 'Pabilo de Algodón 15cm' },
     update: { tipo: 'PABILO', stockMinimo: 20 },
@@ -96,11 +137,18 @@ async function main() {
   // 3. Crear Componentes Base
   const osoCuerpo = await prisma.componenteBase.upsert({
     where: { nombre: 'Cuerpo de Oso Cera Neutra' },
-    update: {},
+    update: {
+      pesoAgua: 136.67,
+      tipoVela: 'DECORATIVA',
+      porcentajeEsencia: 2.44,
+    },
     create: {
       nombre: 'Cuerpo de Oso Cera Neutra',
       costoProduccion: (120 * 0.05) + (3 * 0.8), // 120g cera + 3ml esencia = 6 + 2.4 = 8.4
       stockDisponible: 50,
+      pesoAgua: 136.67,
+      tipoVela: 'DECORATIVA',
+      porcentajeEsencia: 2.44,
     },
   });
 
@@ -136,11 +184,18 @@ async function main() {
 
   const vasoRelleno = await prisma.componenteBase.upsert({
     where: { nombre: 'Envase 8oz con Cera Vainilla' },
-    update: {},
+    update: {
+      pesoAgua: 205.56,
+      tipoVela: 'AROMATICA',
+      porcentajeEsencia: 2.7,
+    },
     create: {
       nombre: 'Envase 8oz con Cera Vainilla',
       costoProduccion: 1.5 + (180 * 0.05) + (5 * 0.8), // 1.5 envase + 9 cera + 4 esencia = 14.5
       stockDisponible: 30,
+      pesoAgua: 205.56,
+      tipoVela: 'AROMATICA',
+      porcentajeEsencia: 2.7,
     },
   });
 
@@ -186,6 +241,38 @@ async function main() {
       componenteBaseId: vasoRelleno.id,
       materiaPrimaId: esencia.id,
       cantidadNecesaria: 5,
+    },
+  });
+
+  // Cada componente con esencia de referencia necesita su variante inicial para
+  // que pueda seleccionarse y fabricarse desde Componentes Base.
+  await prisma.componenteVariante.upsert({
+    where: {
+      componenteBaseId_esenciaId: {
+        componenteBaseId: osoCuerpo.id,
+        esenciaId: esencia.id,
+      },
+    },
+    update: {},
+    create: {
+      componenteBaseId: osoCuerpo.id,
+      esenciaId: esencia.id,
+      stockDisponible: osoCuerpo.stockDisponible,
+    },
+  });
+
+  await prisma.componenteVariante.upsert({
+    where: {
+      componenteBaseId_esenciaId: {
+        componenteBaseId: vasoRelleno.id,
+        esenciaId: esencia.id,
+      },
+    },
+    update: {},
+    create: {
+      componenteBaseId: vasoRelleno.id,
+      esenciaId: esencia.id,
+      stockDisponible: vasoRelleno.stockDisponible,
     },
   });
 

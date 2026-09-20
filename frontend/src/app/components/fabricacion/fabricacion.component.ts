@@ -95,10 +95,17 @@ import { AuthService } from '../../services/auth.service';
               </div>
               <p class="text-[10px] text-stone-400 uppercase tracking-widest font-semibold mt-1">Receta compartida · esencia de referencia</p>
               <div class="mt-3 space-y-2 text-xs">
-                <div *ngFor="let v of comp.variantes" class="bg-amber-50 rounded-lg p-2">
-                  <b>{{ v.esencia.nombre }}</b> · {{ v.stockDisponible }} unidades
-                  <span *ngIf="isAdmin" class="block">Costo: {{ v.costoProduccion | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
-                </div>
+                <ng-container *ngIf="esenciaPredeterminada(comp) as esencia">
+                  <div class="bg-amber-50 rounded-lg p-2">
+                    <b>{{ esencia.nombre }}</b> · <span class="font-semibold text-amber-800">Predeterminada</span> · {{ stockEsenciaPredeterminada(comp, esencia.id) }} unidades
+                  </div>
+                  <ng-container *ngFor="let v of comp.variantes">
+                    <div *ngIf="v.esenciaId !== esencia.id" class="bg-stone-50 border border-stone-100 rounded-lg p-2">
+                      <b>{{ v.esencia.nombre }}</b> · {{ v.stockDisponible }} unidades
+                      <span *ngIf="isAdmin" class="block">Costo: {{ v.costoProduccion | currency:'COP':'symbol-narrow':'1.0-0' }}</span>
+                    </div>
+                  </ng-container>
+                </ng-container>
                 <button *ngIf="isAdmin" (click)="openAromas(comp)" class="text-amber-800 border border-amber-200 rounded-lg px-3 py-2">Esencias y fabricación</button>
               </div>
 
@@ -884,6 +891,14 @@ export class FabricacionComponent implements OnInit {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return items;
     return items.filter(item => item.nombre?.toLowerCase().includes(normalizedQuery));
+  }
+
+  esenciaPredeterminada(comp: any): any | null {
+    return comp.recetaMaterias?.find((rm: any) => rm.materiaPrima?.tipo === 'ESENCIA')?.materiaPrima || null;
+  }
+
+  stockEsenciaPredeterminada(comp: any, esenciaId: number): number {
+    return comp.variantes?.find((v: any) => v.esenciaId === esenciaId)?.stockDisponible || 0;
   }
 
   // Component modal handling
