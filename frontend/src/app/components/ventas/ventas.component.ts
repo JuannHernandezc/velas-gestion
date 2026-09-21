@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { SearchableSelectComponent, SearchableSelectOption } from '../shared/searchable-select.component';
 
 @Component({
   selector: 'app-ventas',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -280,20 +281,17 @@ import { AuthService } from '../../services/auth.service';
               <!-- Item rows -->
               <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
                 <div *ngFor="let item of saleForm.detalles; let i = index" class="flex flex-wrap gap-2 items-center">
-                  <select 
+                  <app-searchable-select
                     name="prod_{{i}}" 
                     [(ngModel)]="item.catalogoProductoId" 
-                    (change)="item.varianteId = undefined; onProductChange()"
+                    (ngModelChange)="item.varianteId = undefined; onProductChange()"
+                    [options]="catalogSearchOptions"
+                    placeholder="Buscar producto"
+                    ariaLabel="Buscar producto"
                     required 
-                    class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
-                  >
-                    <option [value]="0" disabled selected>Selecciona producto</option>
-                    <option *ngFor="let p of catalog" [value]="p.id">{{ p.nombre }}{{ p.variantes?.length ? ' · Elegir esencia' : '' }}</option>
-                  </select>
-                  <select *ngIf="productVariants(item.catalogoProductoId).length" name="variant_{{i}}" [(ngModel)]="item.varianteId" (ngModelChange)="onProductChange()" required aria-label="Esencia de la vela" class="w-full order-last border border-amber-200 rounded-lg p-2 text-xs">
-                    <option [ngValue]="undefined" disabled>Selecciona la esencia / combinación</option>
-                    <option *ngFor="let v of productVariants(item.catalogoProductoId)" [ngValue]="v.id" [disabled]="v.stockDisponible < 1">{{ v.nombre }} · {{ v.descripcion }} · {{ v.precioVenta | currency:'COP':'symbol-narrow':'1.0-0' }} · Stock: {{ v.stockDisponible }}</option>
-                  </select>
+                    class="flex-1"
+                  />
+                  <app-searchable-select *ngIf="productVariants(item.catalogoProductoId).length" name="variant_{{i}}" [(ngModel)]="item.varianteId" (ngModelChange)="onProductChange()" [options]="variantSearchOptions(item.catalogoProductoId)" placeholder="Buscar esencia o combinación" ariaLabel="Buscar esencia de la vela" required class="w-full order-last"></app-searchable-select>
                   <p *ngIf="missingVariantPrices(item.catalogoProductoId)" class="w-full order-last text-xs text-amber-800">Configura las variantes y sus precios en el catálogo antes de vender esta vela.</p>
                   <input 
                     type="number" 
@@ -627,6 +625,22 @@ export class VentasComponent implements OnInit {
   productVariants(id: number): any[] {
     return this.catalog.find(p => p.id === Number(id))?.variantes || [];
   }
+
+  get catalogSearchOptions(): SearchableSelectOption[] {
+    return this.catalog.map(producto => ({
+      value: producto.id,
+      label: `${producto.nombre}${producto.variantes?.length ? ' · Elegir esencia' : ''}`,
+    }));
+  }
+
+  variantSearchOptions(id: number): SearchableSelectOption[] {
+    return this.productVariants(id).map(variante => ({
+      value: variante.id,
+      label: `${variante.nombre} · ${variante.descripcion} · $${Number(variante.precioVenta).toLocaleString('es-CO')} · Stock: ${variante.stockDisponible}`,
+      disabled: variante.stockDisponible < 1,
+    }));
+  }
+
   missingVariantPrices(id: number): boolean {
     const p = this.catalog.find(p => p.id === Number(id));
     return !!p?.requiereEnsamble && p.ensambles.some((e: any) => e.componenteBase.variantes?.length) && !p.variantes?.length;

@@ -4,11 +4,12 @@ import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
+import { SearchableSelectComponent, SearchableSelectOption } from '../shared/searchable-select.component';
 
 @Component({
   selector: 'app-fabricacion',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SearchableSelectComponent],
   template: `
     <div class="space-y-6">
       <!-- Header -->
@@ -267,18 +268,12 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
           </div>
           <form (ngSubmit)="addAroma()" class="space-y-2 border-b pb-4">
             <label for="newAroma" class="text-sm">Agregar esencia compatible con la receta</label>
-            <select id="newAroma" name="newAroma" [(ngModel)]="newAromaId" required class="w-full border rounded-lg p-2">
-              <option [ngValue]="0" disabled>Selecciona esencia</option>
-              <option *ngFor="let m of availableAromas()" [ngValue]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
-            </select>
+            <app-searchable-select id="newAroma" name="newAroma" [(ngModel)]="newAromaId" [options]="aromaOptions(availableAromas())" placeholder="Buscar esencia" ariaLabel="Buscar esencia compatible" required></app-searchable-select>
             <button [disabled]="variantBusy || !newAromaId" class="bg-amber-100 rounded-lg p-2 text-sm disabled:opacity-50">Agregar esencia</button>
           </form>
           <form (ngSubmit)="fabricarAroma()" class="space-y-3">
             <label for="productionAroma" class="text-sm">Esencia a fabricar</label>
-            <select id="productionAroma" name="productionAroma" [(ngModel)]="productionVariantId" required class="w-full border rounded-lg p-2">
-              <option [ngValue]="0" disabled>Selecciona variante</option>
-              <option *ngFor="let v of aromaComp.variantes" [ngValue]="v.id">{{ v.esencia.nombre }} · Stock: {{ v.stockDisponible }}</option>
-            </select>
+            <app-searchable-select id="productionAroma" name="productionAroma" [(ngModel)]="productionVariantId" [options]="varianteEsenciaOptions(aromaComp.variantes)" placeholder="Buscar esencia" ariaLabel="Buscar esencia a fabricar" required></app-searchable-select>
             <label for="productionQty" class="block text-sm">Unidades a fabricar</label>
             <input id="productionQty" name="productionQty" type="number" min="1" step="1" required [(ngModel)]="productionQty" class="w-full border rounded-lg p-2" />
             <button [disabled]="variantBusy || !productionVariantId" class="bg-stone-900 text-white rounded-lg p-2 disabled:opacity-50">Fabricar y actualizar stock</button>
@@ -295,10 +290,7 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
           </label>
           <div *ngFor="let ens of aromaEnsambles(variantProd)">
             <label class="text-sm">{{ ens.componenteBase.nombre }} · esencia
-              <select name="selection_{{ens.componenteBaseId}}" [(ngModel)]="catalogSelections[ens.componenteBaseId]" required class="w-full border rounded-lg p-2 mt-1">
-                <option [ngValue]="0" disabled>Selecciona esencia</option>
-                <option *ngFor="let v of ens.componenteBase.variantes" [ngValue]="v.id">{{ v.esencia.nombre }}</option>
-              </select>
+              <app-searchable-select name="selection_{{ens.componenteBaseId}}" [(ngModel)]="catalogSelections[ens.componenteBaseId]" [options]="varianteEsenciaOptions(ens.componenteBase.variantes)" placeholder="Buscar esencia" ariaLabel="Buscar esencia" required class="mt-1"></app-searchable-select>
             </label>
           </div>
           <p class="text-sm">Costo estimado: <b>{{ catalogVariantCost() | currency:'COP':'symbol-narrow':'1.0-0' }}</b></p>
@@ -328,10 +320,7 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
 
             <div>
               <label for="compMolde" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Molde</label>
-              <select id="compMolde" name="compMolde" [(ngModel)]="compForm.moldeMateriaPrimaId" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors">
-                <option [ngValue]="null">Sin molde / componente independiente</option>
-                <option *ngFor="let molde of getMateriasByType('MOLDE')" [ngValue]="molde.id">{{ molde.nombre }}</option>
-              </select>
+              <app-searchable-select id="compMolde" name="compMolde" [(ngModel)]="compForm.moldeMateriaPrimaId" [options]="moldeOptions" placeholder="Buscar molde" ariaLabel="Buscar molde"></app-searchable-select>
               <p class="mt-1 text-[10px] text-stone-400">Los componentes con el mismo molde se agrupan sin alterar sus recetas ni costos.</p>
             </div>
 
@@ -354,22 +343,13 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
               <p class="text-xs font-bold text-brand-dark uppercase tracking-wider">Materiales para las configuraciones</p>
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label class="text-xs text-stone-600">Cera APF
-                  <select name="grupoCeraApf" [(ngModel)]="grupoForm.ceraApfId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
-                    <option [ngValue]="0">Seleccionar</option>
-                    <option *ngFor="let cera of getMateriasByType('CERA')" [ngValue]="cera.id">{{ cera.nombre }}</option>
-                  </select>
+                  <app-searchable-select name="grupoCeraApf" [(ngModel)]="grupoForm.ceraApfId" [options]="materiaOptions('CERA')" placeholder="Buscar cera" ariaLabel="Buscar cera APF" class="mt-1"></app-searchable-select>
                 </label>
                 <label class="text-xs text-stone-600">Cera de molde
-                  <select name="grupoCeraMolde" [(ngModel)]="grupoForm.ceraMoldeId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
-                    <option [ngValue]="0">Seleccionar</option>
-                    <option *ngFor="let cera of getMateriasByType('CERA')" [ngValue]="cera.id">{{ cera.nombre }}</option>
-                  </select>
+                  <app-searchable-select name="grupoCeraMolde" [(ngModel)]="grupoForm.ceraMoldeId" [options]="materiaOptions('CERA')" placeholder="Buscar cera" ariaLabel="Buscar cera de molde" class="mt-1"></app-searchable-select>
                 </label>
                 <label class="text-xs text-stone-600">Pábilo
-                  <select name="grupoPabilo" [(ngModel)]="grupoForm.pabiloId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
-                    <option [ngValue]="0">Seleccionar</option>
-                    <option *ngFor="let pabilo of getMateriasByType('PABILO')" [ngValue]="pabilo.id">{{ pabilo.nombre }}</option>
-                  </select>
+                  <app-searchable-select name="grupoPabilo" [(ngModel)]="grupoForm.pabiloId" [options]="materiaOptions('PABILO')" placeholder="Buscar pábilo" ariaLabel="Buscar pábilo" class="mt-1"></app-searchable-select>
                 </label>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
@@ -446,69 +426,27 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Cera</label>
-                      <select 
-                        name="moldCera" 
-                        [(ngModel)]="moldParams.ceraId" 
-                        (change)="calculateRecipeFromMold()"
-                        required 
-                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
-                      >
-                        <option [value]="0" disabled>Seleccionar</option>
-                        <option *ngFor="let m of getMateriasByType('CERA')" [value]="m.id">{{ m.nombre }}</option>
-                      </select>
+                      <app-searchable-select name="moldCera" [(ngModel)]="moldParams.ceraId" (ngModelChange)="calculateRecipeFromMold()" [options]="materiaOptions('CERA')" placeholder="Buscar cera" ariaLabel="Buscar cera" required></app-searchable-select>
                     </div>
 
                     <div>
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Esencia</label>
-                      <select 
-                        name="moldEsencia" 
-                        [(ngModel)]="moldParams.esenciaId" 
-                        (change)="calculateRecipeFromMold()"
-                        required 
-                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
-                      >
-                        <option [value]="0" disabled>Seleccionar</option>
-                        <option *ngFor="let m of getMateriasByType('ESENCIA')" [value]="m.id">{{ m.nombre }}</option>
-                      </select>
+                      <app-searchable-select name="moldEsencia" [(ngModel)]="moldParams.esenciaId" (ngModelChange)="calculateRecipeFromMold()" [options]="materiaOptions('ESENCIA')" placeholder="Buscar esencia" ariaLabel="Buscar esencia" required></app-searchable-select>
                     </div>
 
                     <div *ngIf="moldParams.tipoVela === 'DECORATIVA'">
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Aditivo</label>
-                      <select 
-                        name="moldAditivo" 
-                        [(ngModel)]="moldParams.aditivoId" 
-                        (change)="calculateRecipeFromMold()"
-                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
-                      >
-                        <option [value]="0">Ninguno / Sin aditivo</option>
-                        <option *ngFor="let m of getMateriasByType('ADITIVO')" [value]="m.id">{{ m.nombre }}</option>
-                      </select>
+                      <app-searchable-select name="moldAditivo" [(ngModel)]="moldParams.aditivoId" (ngModelChange)="calculateRecipeFromMold()" [options]="aditivoOptions" placeholder="Buscar aditivo" ariaLabel="Buscar aditivo"></app-searchable-select>
                     </div>
 
                     <div *ngIf="moldParams.tipoVela === 'AROMATICA'">
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Envase / Frasco</label>
-                      <select 
-                        name="moldEnvase" 
-                        [(ngModel)]="moldParams.envaseId" 
-                        (change)="calculateRecipeFromMold()"
-                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
-                      >
-                        <option [value]="0">Sin envase / Ninguno</option>
-                        <option *ngFor="let m of getMateriasByType('ENVASE')" [value]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
-                      </select>
+                      <app-searchable-select name="moldEnvase" [(ngModel)]="moldParams.envaseId" (ngModelChange)="calculateRecipeFromMold()" [options]="envaseOptions" placeholder="Buscar envase" ariaLabel="Buscar envase"></app-searchable-select>
                     </div>
 
                     <div>
                       <label class="block text-[9px] font-semibold text-stone-400 uppercase mb-1">Pabilo / Mecha</label>
-                      <select 
-                        name="moldPabilo" 
-                        [(ngModel)]="moldParams.pabiloId" 
-                        (change)="calculateRecipeFromMold()"
-                        class="w-full bg-white border border-stone-200 rounded-lg py-1 px-2 text-[10px] text-stone-700 focus:outline-none focus:border-brand-primary"
-                      >
-                        <option [value]="0">Ninguno / Sin pabilo</option>
-                        <option *ngFor="let m of getMateriasByType('PABILO')" [value]="m.id">{{ m.nombre }} ({{ m.unidadMedida }})</option>
-                      </select>
+                      <app-searchable-select name="moldPabilo" [(ngModel)]="moldParams.pabiloId" (ngModelChange)="calculateRecipeFromMold()" [options]="pabiloOptions" placeholder="Buscar pábilo" ariaLabel="Buscar pábilo"></app-searchable-select>
                     </div>
                   </div>
 
@@ -714,15 +652,15 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
               <!-- Ensamble rows -->
               <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
                 <div *ngFor="let row of prodForm.ensambles; let i = index" class="flex gap-2 items-center">
-                  <select 
+                  <app-searchable-select
                     name="comp_{{i}}" 
                     [(ngModel)]="row.componenteBaseId" 
+                    [options]="componenteOptions"
+                    placeholder="Buscar componente base"
+                    ariaLabel="Buscar componente base"
                     required 
-                    class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
-                  >
-                    <option [value]="0" disabled selected>Selecciona componente base</option>
-                    <option *ngFor="let c of componentes" [value]="c.id">{{ c.nombre }} (Stock: {{ c.stockDisponible }})</option>
-                  </select>
+                    class="flex-1"
+                  />
                   <input 
                     type="number" 
                     name="compQty_{{i}}" 
@@ -749,15 +687,15 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
               </p>
               <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
                 <div *ngFor="let row of prodForm.materiasPrimas; let i = index" class="flex gap-2 items-center">
-                  <select
+                  <app-searchable-select
                     name="materia_{{i}}"
                     [(ngModel)]="row.materiaPrimaId"
+                    [options]="materiaOptions()"
+                    placeholder="Buscar materia prima"
+                    ariaLabel="Buscar materia prima"
                     required
-                    class="flex-1 bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-xs text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
-                  >
-                    <option [value]="0" disabled selected>Selecciona materia prima</option>
-                    <option *ngFor="let m of materias" [value]="m.id">{{ m.nombre }} (Stock: {{ m.stockActual }} {{ m.unidadMedida }})</option>
-                  </select>
+                    class="flex-1"
+                  />
                   <input
                     type="number"
                     name="materiaQty_{{i}}"
@@ -796,7 +734,7 @@ import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
     }
     @keyframes zoomIn {
       from { opacity: 0; transform: scale(0.95); }
-      to { opacity: 1; transform: scale(1); }
+      to { opacity: 1; transform: none; }
     }
   `]
 })
@@ -1251,6 +1189,51 @@ export class FabricacionComponent implements OnInit {
   getMateriasByType(tipo: string): any[] {
     if (!this.materias) return [];
     return this.materias.filter(m => m.tipo === tipo);
+  }
+
+  materiaOptions(tipo?: string): SearchableSelectOption[] {
+    const materias = tipo ? this.getMateriasByType(tipo) : this.materias || [];
+    return materias.map(materia => ({
+      value: materia.id,
+      label: `${materia.nombre} (${materia.stockActual} ${materia.unidadMedida})`,
+    }));
+  }
+
+  aromaOptions(materias: any[]): SearchableSelectOption[] {
+    return materias.map(materia => ({ value: materia.id, label: `${materia.nombre} (${materia.unidadMedida})` }));
+  }
+
+  varianteEsenciaOptions(variantes: any[] | undefined): SearchableSelectOption[] {
+    return (variantes || []).map(variante => ({
+      value: variante.id,
+      label: `${variante.esencia.nombre} · Stock: ${variante.stockDisponible}`,
+    }));
+  }
+
+  get componenteOptions(): SearchableSelectOption[] {
+    return this.componentes.map(componente => ({
+      value: componente.id,
+      label: `${componente.nombre} (Stock: ${componente.stockDisponible})`,
+    }));
+  }
+
+  get moldeOptions(): SearchableSelectOption[] {
+    return [
+      { value: null, label: 'Sin molde / componente independiente' },
+      ...this.materiaOptions('MOLDE'),
+    ];
+  }
+
+  get aditivoOptions(): SearchableSelectOption[] {
+    return [{ value: 0, label: 'Ninguno / Sin aditivo' }, ...this.materiaOptions('ADITIVO')];
+  }
+
+  get envaseOptions(): SearchableSelectOption[] {
+    return [{ value: 0, label: 'Sin envase / Ninguno' }, ...this.materiaOptions('ENVASE')];
+  }
+
+  get pabiloOptions(): SearchableSelectOption[] {
+    return [{ value: 0, label: 'Ninguno / Sin pábilo' }, ...this.materiaOptions('PABILO')];
   }
 
   calculateRecipeFromMold(): void {
