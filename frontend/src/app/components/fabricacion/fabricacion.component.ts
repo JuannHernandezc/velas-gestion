@@ -1176,7 +1176,12 @@ export class FabricacionComponent implements OnInit {
       const pabiloId = opcion.pabilo ? Number(this.grupoForm.pabiloId) : 0;
       if (!ceraId || (opcion.pabilo && !pabiloId)) return null;
       const vybarId = opcion.cera === 'apf' ? Number(vybar!.id) : 0;
-      return { ...base, nombre: `${base.nombre} · ${opcion.etiqueta}`, receta: this.recetaParaConfiguracion(ceraId, pabiloId, vybarId) };
+      return {
+        ...base,
+        nombre: `${base.nombre} · ${opcion.etiqueta}`,
+        tipoCera: opcion.cera === 'apf' ? 'APF' : 'MOLDE',
+        receta: this.recetaParaConfiguracion(ceraId, pabiloId, vybarId),
+      };
     });
     if (componentes.some(c => !c)) { alert('Selecciona las ceras requeridas y el pábilo para las combinaciones marcadas.'); return; }
     this.http.post('http://localhost:3000/api/componente-base/grupo', { componentes }).subscribe({

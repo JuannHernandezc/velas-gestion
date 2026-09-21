@@ -2,6 +2,7 @@ import { componenteInclude, presentarComponente, recetaParaEsencia, sinCostos } 
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateComponenteBaseDto } from './dto/create-componente-base.dto';
+import { CreateConfiguracionGrupoDto } from './dto/create-grupo-componentes.dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -116,24 +117,49 @@ export class ComponenteBaseService {
     return this.prisma.$transaction(async tx => this.crearComponente(tx, dto, costoProduccion));
   }
 
-  async createGrupo(componentes: CreateComponenteBaseDto[]) {
-    const moldeIds = new Set(componentes.map(c => c.moldeMateriaPrimaId));
-    if (moldeIds.size !== 1 || !componentes[0].moldeMateriaPrimaId) {
+  async createGrupo(componentes: CreateConfiguracionGrupoDto[]) {
+    const configuraciones = await Promise.all(componentes.map(c => this.aplicarReglaAditivo(c)));
+    const moldeIds = new Set(configuraciones.map(c => c.moldeMateriaPrimaId));
+    if (moldeIds.size !== 1 || !configuraciones[0].moldeMateriaPrimaId) {
       throw new BadRequestException('Todas las configuraciones deben pertenecer al mismo molde');
     }
-    const nombres = componentes.map(c => c.nombre.trim());
+    const nombres = configuraciones.map(c => c.nombre.trim());
     if (new Set(nombres).size !== nombres.length) throw new ConflictException('Las configuraciones del grupo deben tener nombres distintos');
     const existentes = await this.prisma.componenteBase.findMany({ where: { nombre: { in: nombres } }, select: { nombre: true } });
     if (existentes.length) throw new ConflictException(`Ya existe un componente con el nombre: "${existentes[0].nombre}"`);
-    await Promise.all(componentes.map(c => this.validarMolde(c.moldeMateriaPrimaId)));
-    const costos = await Promise.all(componentes.map(c => this.calculateCost(c.receta)));
+    await Promise.all(configuraciones.map(c => this.validarMolde(c.moldeMateriaPrimaId)));
+    const costos = await Promise.all(configuraciones.map(c => this.calculateCost(c.receta)));
     return this.prisma.$transaction(async tx => {
       const creados: Awaited<ReturnType<typeof this.crearComponente>>[] = [];
-      for (let index = 0; index < componentes.length; index++) {
-        creados.push(await this.crearComponente(tx, componentes[index], costos[index]));
+      for (let index = 0; index < configuraciones.length; index++) {
+        creados.push(await this.crearComponente(tx, configuraciones[index], costos[index]));
       }
       return creados;
     }, { isolationLevel: 'Serializable' });
+  }
+
+  private async aplicarReglaAditivo(dto: CreateConfiguracionGrupoDto): Promise<CreateConfiguracionGrupoDto> {
+    if (dto.tipoCera === 'APF') return dto;
+
+    const ids = dto.receta.map(item => Number(item.materiaPrimaId));
+    const materias = await this.prisma.materiaPrima.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, tipo: true },
+    });
+    const materiasPorId = new Map(materias.map(materia => [materia.id, materia.tipo]));
+    const cantidadAditivo = dto.receta
+      .filter(item => materiasPorId.get(Number(item.materiaPrimaId)) === 'ADITIVO')
+      .reduce((total, item) => total + Number(item.cantidadNecesaria), 0);
+    if (!cantidadAditivo) return dto;
+
+    return {
+      ...dto,
+      receta: dto.receta
+        .filter(item => materiasPorId.get(Number(item.materiaPrimaId)) !== 'ADITIVO')
+        .map(item => materiasPorId.get(Number(item.materiaPrimaId)) === 'CERA'
+          ? { ...item, cantidadNecesaria: Number(item.cantidadNecesaria) + cantidadAditivo }
+          : item),
+    };
   }
 
   private async crearComponente(tx: Prisma.TransactionClient, dto: CreateComponenteBaseDto, costoProduccion: number) {
