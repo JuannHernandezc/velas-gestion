@@ -2,10 +2,19 @@ import { componenteInclude, presentarComponente, recetaParaEsencia, sinCostos } 
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateComponenteBaseDto } from './dto/create-componente-base.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ComponenteBaseService {
   constructor(private prisma: PrismaService) {}
+
+  private async validarMolde(moldeMateriaPrimaId?: number): Promise<void> {
+    if (!moldeMateriaPrimaId) return;
+    const molde = await this.prisma.materiaPrima.findUnique({ where: { id: moldeMateriaPrimaId } });
+    if (!molde || molde.tipo !== 'MOLDE') {
+      throw new BadRequestException('Selecciona un molde registrado en Materias Primas');
+    }
+  }
 
   async calculateCost(recetaItems: { materiaPrimaId: number; cantidadNecesaria: number }[]): Promise<number> {
     let cost = 0;
@@ -51,6 +60,27 @@ export class ComponenteBaseService {
     }, { isolationLevel: 'Serializable' });
   }
 
+  async removeVariante(id: number, varianteId: number) {
+    return this.prisma.$transaction(async tx => {
+      const comp = await tx.componenteBase.findUnique({ where: { id }, include: componenteInclude });
+      const variante = comp?.variantes.find(v => v.id === varianteId);
+      if (!comp || !variante) throw new NotFoundException('Variante de esencia no encontrada en este componente');
+
+      const esenciaPredeterminadaId = comp.recetaMaterias.find(r => r.materiaPrima.tipo === 'ESENCIA')?.materiaPrimaId;
+      if (variante.esenciaId === esenciaPredeterminadaId) {
+        throw new BadRequestException('No se puede eliminar la esencia predeterminada de la receta');
+      }
+      if (variante.stockDisponible > 0) {
+        throw new BadRequestException('No se puede eliminar una esencia con unidades fabricadas en stock');
+      }
+      const usadaEnCatalogo = await tx.seleccionVariante.findFirst({ where: { componenteVarianteId: varianteId } });
+      if (usadaEnCatalogo) {
+        throw new BadRequestException('No se puede eliminar una esencia usada en una variante del catálogo');
+      }
+      return tx.componenteVariante.delete({ where: { id: varianteId } });
+    }, { isolationLevel: 'Serializable' });
+  }
+
   async fabricar(id: number, varianteId: number, cantidad: number) {
     return this.prisma.$transaction(async tx => {
       const comp = await tx.componenteBase.findUnique({ where: { id }, include: componenteInclude });
@@ -81,44 +111,68 @@ export class ComponenteBaseService {
 
     // Calcular costo de producción basado en la receta
     const costoProduccion = await this.calculateCost(dto.receta);
+    await this.validarMolde(dto.moldeMateriaPrimaId);
 
-    return this.prisma.$transaction(async (tx) => {
-      const comp = await tx.componenteBase.create({
-        data: {
-          nombre: dto.nombre,
-          costoProduccion,
-          stockDisponible: dto.stockDisponible,
-          pesoAgua: dto.pesoAgua,
-          tipoVela: dto.tipoVela,
-          porcentajeEsencia: dto.porcentajeEsencia,
-          imagenUrl: dto.imagenUrl,
-        },
-      });
+    return this.prisma.$transaction(async tx => this.crearComponente(tx, dto, costoProduccion));
+  }
 
-      for (const recItem of dto.receta) {
-        await tx.recetaComponente.create({
-          data: {
-            componenteBaseId: comp.id,
-            materiaPrimaId: Number(recItem.materiaPrimaId),
-            cantidadNecesaria: Number(recItem.cantidadNecesaria),
-          },
-        });
+  async createGrupo(componentes: CreateComponenteBaseDto[]) {
+    const moldeIds = new Set(componentes.map(c => c.moldeMateriaPrimaId));
+    if (moldeIds.size !== 1 || !componentes[0].moldeMateriaPrimaId) {
+      throw new BadRequestException('Todas las configuraciones deben pertenecer al mismo molde');
+    }
+    const nombres = componentes.map(c => c.nombre.trim());
+    if (new Set(nombres).size !== nombres.length) throw new ConflictException('Las configuraciones del grupo deben tener nombres distintos');
+    const existentes = await this.prisma.componenteBase.findMany({ where: { nombre: { in: nombres } }, select: { nombre: true } });
+    if (existentes.length) throw new ConflictException(`Ya existe un componente con el nombre: "${existentes[0].nombre}"`);
+    await Promise.all(componentes.map(c => this.validarMolde(c.moldeMateriaPrimaId)));
+    const costos = await Promise.all(componentes.map(c => this.calculateCost(c.receta)));
+    return this.prisma.$transaction(async tx => {
+      const creados: Awaited<ReturnType<typeof this.crearComponente>>[] = [];
+      for (let index = 0; index < componentes.length; index++) {
+        creados.push(await this.crearComponente(tx, componentes[index], costos[index]));
       }
+      return creados;
+    }, { isolationLevel: 'Serializable' });
+  }
 
-      const recetaGuardada = await tx.recetaComponente.findMany({ where: { componenteBaseId: comp.id }, include: { materiaPrima: true } });
-      const aromas = recetaGuardada.filter(r => r.materiaPrima.tipo === 'ESENCIA');
-      if (aromas.length === 1) await tx.componenteVariante.create({ data: { componenteBaseId: comp.id, esenciaId: aromas[0].materiaPrimaId, stockDisponible: dto.stockDisponible } });
+  private async crearComponente(tx: Prisma.TransactionClient, dto: CreateComponenteBaseDto, costoProduccion: number) {
+    const comp = await tx.componenteBase.create({
+      data: {
+        nombre: dto.nombre,
+        costoProduccion,
+        stockDisponible: dto.stockDisponible,
+        pesoAgua: dto.pesoAgua,
+        tipoVela: dto.tipoVela,
+        porcentajeEsencia: dto.porcentajeEsencia,
+        imagenUrl: dto.imagenUrl,
+        moldeMateriaPrimaId: dto.moldeMateriaPrimaId,
+      },
+    });
 
-      return tx.componenteBase.findUnique({
-        where: { id: comp.id },
-        include: {
-          recetaMaterias: {
-            include: {
-              materiaPrima: true,
-            },
-          },
+    for (const recItem of dto.receta) {
+      await tx.recetaComponente.create({
+        data: {
+          componenteBaseId: comp.id,
+          materiaPrimaId: Number(recItem.materiaPrimaId),
+          cantidadNecesaria: Number(recItem.cantidadNecesaria),
         },
       });
+    }
+
+    const recetaGuardada = await tx.recetaComponente.findMany({ where: { componenteBaseId: comp.id }, include: { materiaPrima: true } });
+    const aromas = recetaGuardada.filter(r => r.materiaPrima.tipo === 'ESENCIA');
+    if (aromas.length === 1) await tx.componenteVariante.create({ data: { componenteBaseId: comp.id, esenciaId: aromas[0].materiaPrimaId, stockDisponible: dto.stockDisponible } });
+
+    return tx.componenteBase.findUnique({
+      where: { id: comp.id },
+      include: {
+        recetaMaterias: {
+          include: {
+            materiaPrima: true,
+          },
+        },
+      },
     });
   }
 
@@ -129,6 +183,7 @@ export class ComponenteBaseService {
     if (!comp) {
       throw new NotFoundException('Componente base no encontrado');
     }
+    await this.validarMolde(dto.moldeMateriaPrimaId);
 
     if (dto.nombre && dto.nombre !== comp.nombre) {
       const existing = await this.prisma.componenteBase.findUnique({
@@ -181,6 +236,7 @@ export class ComponenteBaseService {
           tipoVela: dto.tipoVela !== undefined ? dto.tipoVela : comp.tipoVela,
           porcentajeEsencia: dto.porcentajeEsencia !== undefined ? dto.porcentajeEsencia : comp.porcentajeEsencia,
           imagenUrl: dto.imagenUrl !== undefined ? dto.imagenUrl : comp.imagenUrl,
+          moldeMateriaPrimaId: dto.moldeMateriaPrimaId !== undefined ? dto.moldeMateriaPrimaId : comp.moldeMateriaPrimaId,
         },
       });
 

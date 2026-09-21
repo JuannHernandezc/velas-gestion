@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 export const componenteInclude = {
+  moldeMateriaPrima: true,
   recetaMaterias: { include: { materiaPrima: true } },
   variantes: { include: { esencia: true }, orderBy: { id: 'asc' as const } },
 };

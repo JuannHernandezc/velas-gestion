@@ -78,17 +78,32 @@ export class MateriaPrimaService {
       throw new NotFoundException('Materia prima no encontrada');
     }
 
-    // Verificar si está asociada a alguna receta antes de eliminar
-    const asociacion = await this.prisma.recetaComponente.findFirst({
-      where: { materiaPrimaId: id },
-      include: {
-        componenteBase: true,
-      },
-    });
+    // No permitir borrar insumos que sostienen recetas, variantes, ensambles o moldes.
+    const [receta, varianteEsencia, ensambleDirecto, componenteConMolde] = await Promise.all([
+      this.prisma.recetaComponente.findFirst({ where: { materiaPrimaId: id }, include: { componenteBase: true } }),
+      this.prisma.componenteVariante.findFirst({ where: { esenciaId: id }, include: { componenteBase: true } }),
+      this.prisma.estructuraEnsambleMateriaPrima.findFirst({ where: { materiaPrimaId: id }, include: { catalogoProducto: true } }),
+      this.prisma.componenteBase.findFirst({ where: { moldeMateriaPrimaId: id } }),
+    ]);
 
-    if (asociacion) {
+    if (receta) {
       throw new ConflictException(
-        `No se puede eliminar la materia prima porque está siendo utilizada en la receta de: "${asociacion.componenteBase.nombre}"`
+        `No se puede eliminar la materia prima porque está siendo utilizada en la receta de: "${receta.componenteBase.nombre}"`
+      );
+    }
+    if (varianteEsencia) {
+      throw new ConflictException(
+        `No se puede eliminar la materia prima porque es una esencia configurada en: "${varianteEsencia.componenteBase.nombre}"`
+      );
+    }
+    if (ensambleDirecto) {
+      throw new ConflictException(
+        `No se puede eliminar la materia prima porque está siendo utilizada en el catálogo: "${ensambleDirecto.catalogoProducto.nombre}"`
+      );
+    }
+    if (componenteConMolde) {
+      throw new ConflictException(
+        `No se puede eliminar el molde porque está asignado al componente: "${componenteConMolde.nombre}"`
       );
     }
 

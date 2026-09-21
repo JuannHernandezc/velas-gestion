@@ -69,15 +69,23 @@ import { coincideBusqueda } from '../../utils/search.utils';
           />
         </div>
 
-        <!-- Grid of Component Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Component cards, grouped by the inventory mold when selected. -->
+        <div class="space-y-6">
           <div *ngIf="filteredComponentes.length === 0" class="col-span-full bg-white border border-stone-200 rounded-xl p-12 text-center text-stone-400">
             <i class="fa-solid fa-cubes text-4xl mb-3 block text-stone-300"></i>
             {{ componentes.length === 0 ? 'No hay componentes base registrados.' : 'No se encontraron componentes con esa búsqueda.' }}
           </div>
 
+          <section *ngFor="let grupo of componentesAgrupados" class="space-y-3">
+            <div *ngIf="grupo.molde" class="flex items-center gap-3 px-1">
+              <div class="h-px flex-1 bg-stone-200"></div>
+              <span class="text-xs font-bold text-stone-600 uppercase tracking-wider"><i class="fa-solid fa-shapes text-brand-primary mr-1"></i>Molde: {{ grupo.molde.nombre }}</span>
+              <span class="text-[10px] font-semibold text-stone-400">{{ grupo.componentes.length }} configuraciones</span>
+              <div class="h-px flex-1 bg-stone-200"></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div 
-            *ngFor="let comp of filteredComponentes"
+            *ngFor="let comp of grupo.componentes"
             class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden hover:border-brand-primary/30 transition-all flex flex-col justify-between"
           >
             <div class="h-36 bg-stone-100 relative overflow-hidden flex items-center justify-center">
@@ -137,6 +145,8 @@ import { coincideBusqueda } from '../../utils/search.utils';
               </div>
             </div>
           </div>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -248,6 +258,13 @@ import { coincideBusqueda } from '../../utils/search.utils';
         <div class="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4">
           <h3 class="font-bold">Esencias y fabricación · {{ aromaComp.nombre }}</h3>
           <p class="text-xs text-stone-500">Cada esencia usa la misma receta y tiene su propio stock. Fabricar descuenta las materias primas.</p>
+          <div class="space-y-2 border-b pb-4">
+            <p class="text-sm font-semibold text-stone-700">Esencias configuradas</p>
+            <div *ngFor="let v of aromaComp.variantes" class="flex items-center justify-between gap-3 rounded-lg border border-stone-200 p-2 text-sm">
+              <span><b>{{ v.esencia.nombre }}</b><span *ngIf="esEsenciaPredeterminada(v)" class="ml-1 text-xs font-semibold text-amber-800">· Predeterminada</span><span class="text-stone-500"> · {{ v.stockDisponible }} unidades</span></span>
+              <button *ngIf="!esEsenciaPredeterminada(v)" type="button" (click)="removeAroma(v)" [disabled]="variantBusy || v.stockDisponible > 0" class="text-red-600 disabled:text-stone-300" [title]="v.stockDisponible > 0 ? 'No se puede eliminar con stock disponible' : 'Eliminar esencia'"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
           <form (ngSubmit)="addAroma()" class="space-y-2 border-b pb-4">
             <label for="newAroma" class="text-sm">Agregar esencia compatible con la receta</label>
             <select id="newAroma" name="newAroma" [(ngModel)]="newAromaId" required class="w-full border rounded-lg p-2">
@@ -310,6 +327,15 @@ import { coincideBusqueda } from '../../utils/search.utils';
             </div>
 
             <div>
+              <label for="compMolde" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Molde</label>
+              <select id="compMolde" name="compMolde" [(ngModel)]="compForm.moldeMateriaPrimaId" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors">
+                <option [ngValue]="null">Sin molde / componente independiente</option>
+                <option *ngFor="let molde of getMateriasByType('MOLDE')" [ngValue]="molde.id">{{ molde.nombre }}</option>
+              </select>
+              <p class="mt-1 text-[10px] text-stone-400">Los componentes con el mismo molde se agrupan sin alterar sus recetas ni costos.</p>
+            </div>
+
+            <div>
               <label for="compImg" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">URL de Imagen</label>
               <input type="text" id="compImg" name="compImg" [(ngModel)]="compForm.imagenUrl" placeholder="http://..." class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
             </div>
@@ -317,6 +343,42 @@ import { coincideBusqueda } from '../../utils/search.utils';
             <div>
               <label for="compStock" class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Stock Inicial Disponible</label>
               <input type="number" id="compStock" name="compStock" [(ngModel)]="compForm.stockDisponible" [readonly]="editingComp?.variantes?.length > 0" required min="0" class="w-full bg-stone-50 border border-stone-200 rounded-lg py-2 px-3 text-sm text-stone-800 focus:outline-none focus:border-brand-primary focus:bg-white transition-colors" />
+            </div>
+
+            <label class="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700 cursor-pointer">
+              <input type="checkbox" name="crearGrupo" [(ngModel)]="crearGrupo" class="accent-brand-primary" />
+              <span><b>Crear configuraciones del molde</b><br><span class="text-xs text-stone-500">Genera solo las combinaciones que selecciones. Si editas una pieza, esta se conserva intacta.</span></span>
+            </label>
+
+            <div *ngIf="crearGrupo" class="space-y-3 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4">
+              <p class="text-xs font-bold text-brand-dark uppercase tracking-wider">Materiales para las configuraciones</p>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label class="text-xs text-stone-600">Cera APF
+                  <select name="grupoCeraApf" [(ngModel)]="grupoForm.ceraApfId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
+                    <option [ngValue]="0">Seleccionar</option>
+                    <option *ngFor="let cera of getMateriasByType('CERA')" [ngValue]="cera.id">{{ cera.nombre }}</option>
+                  </select>
+                </label>
+                <label class="text-xs text-stone-600">Cera de molde
+                  <select name="grupoCeraMolde" [(ngModel)]="grupoForm.ceraMoldeId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
+                    <option [ngValue]="0">Seleccionar</option>
+                    <option *ngFor="let cera of getMateriasByType('CERA')" [ngValue]="cera.id">{{ cera.nombre }}</option>
+                  </select>
+                </label>
+                <label class="text-xs text-stone-600">Pábilo
+                  <select name="grupoPabilo" [(ngModel)]="grupoForm.pabiloId" class="mt-1 w-full border border-stone-200 rounded-lg p-2 bg-white">
+                    <option [ngValue]="0">Seleccionar</option>
+                    <option *ngFor="let pabilo of getMateriasByType('PABILO')" [ngValue]="pabilo.id">{{ pabilo.nombre }}</option>
+                  </select>
+                </label>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <label *ngFor="let opcion of opcionesGrupo" class="flex items-center gap-2 bg-white border border-stone-200 rounded-lg p-2 cursor-pointer">
+                  <input type="checkbox" [name]="opcion.clave" [(ngModel)]="grupoForm[opcion.clave]" class="accent-brand-primary" />
+                  {{ opcion.etiqueta }}
+                </label>
+              </div>
+              <p class="text-[10px] text-stone-500">La esencia elegida en el formulario se usa como esencia predeterminada inicial en cada configuración creada.</p>
             </div>
 
             <!-- Mold Assistant Panel -->
@@ -760,6 +822,10 @@ export class FabricacionComponent implements OnInit {
     const reference = this.aromaComp?.recetaMaterias.find((r: any) => r.materiaPrima.tipo === 'ESENCIA');
     return this.materias.filter(m => m.tipo === 'ESENCIA' && m.unidadMedida === reference?.materiaPrima.unidadMedida && !this.aromaComp.variantes.some((v: any) => v.esenciaId === m.id));
   }
+  esEsenciaPredeterminada(variante: any): boolean {
+    const referencia = this.aromaComp?.recetaMaterias?.find((r: any) => r.materiaPrima.tipo === 'ESENCIA');
+    return variante.esenciaId === referencia?.materiaPrimaId;
+  }
   refreshAromas(message: string): void {
     this.http.get<any>(`http://localhost:3000/api/componente-base/${this.aromaComp.id}`).subscribe({
       next: comp => { this.aromaComp = comp; this.variantBusy = false; this.variantMessage = message; this.loadData(); },
@@ -772,6 +838,15 @@ export class FabricacionComponent implements OnInit {
     this.http.post(`http://localhost:3000/api/componente-base/${this.aromaComp.id}/variantes`, { esenciaId: Number(this.newAromaId) }).subscribe({
       next: () => { this.newAromaId = 0; this.refreshAromas('Esencia agregada con stock cero.'); },
       error: err => { this.variantBusy = false; this.variantMessage = err.error?.message || 'No se pudo agregar la esencia'; }
+    });
+  }
+  removeAroma(variante: any): void {
+    if (this.variantBusy || this.esEsenciaPredeterminada(variante) || variante.stockDisponible > 0) return;
+    if (!confirm(`¿Eliminar la esencia ${variante.esencia.nombre} de este componente?`)) return;
+    this.variantBusy = true;
+    this.http.delete(`http://localhost:3000/api/componente-base/${this.aromaComp.id}/variantes/${variante.id}`).subscribe({
+      next: () => this.refreshAromas('Esencia eliminada.'),
+      error: err => { this.variantBusy = false; this.variantMessage = err.error?.message || 'No se pudo eliminar la esencia'; }
     });
   }
   fabricarAroma(): void {
@@ -829,10 +904,27 @@ export class FabricacionComponent implements OnInit {
   editingComp: any = null;
   compForm = {
     nombre: '',
+    moldeMateriaPrimaId: null as number | null,
     imagenUrl: '',
     stockDisponible: 0,
     receta: [] as { materiaPrimaId: number; cantidadNecesaria: number }[]
   };
+  crearGrupo = false;
+  grupoForm: any = {
+    ceraApfId: 0,
+    ceraMoldeId: 0,
+    pabiloId: 0,
+    apfConPabilo: false,
+    apfSinPabilo: false,
+    moldeConPabilo: false,
+    moldeSinPabilo: false,
+  };
+  opcionesGrupo = [
+    { clave: 'apfConPabilo', etiqueta: 'Cera APF · con pábilo', cera: 'apf', pabilo: true },
+    { clave: 'apfSinPabilo', etiqueta: 'Cera APF · sin pábilo', cera: 'apf', pabilo: false },
+    { clave: 'moldeConPabilo', etiqueta: 'Cera de molde · con pábilo', cera: 'molde', pabilo: true },
+    { clave: 'moldeSinPabilo', etiqueta: 'Cera de molde · sin pábilo', cera: 'molde', pabilo: false },
+  ];
 
   // Mold assistant variables
   useMold = false;
@@ -894,7 +986,19 @@ export class FabricacionComponent implements OnInit {
   }
 
   get filteredComponentes(): any[] {
-    return this.filterByName(this.componentes, this.componentSearchQuery);
+    return this.componentesAgrupados.flatMap(grupo => grupo.componentes);
+  }
+
+  get componentesAgrupados(): { molde: any | null; componentes: any[] }[] {
+    const grupos = new Map<string, { molde: any | null; componentes: any[] }>();
+    for (const comp of this.componentes) {
+      const nombreMolde = comp.moldeMateriaPrima?.nombre;
+      if (!coincideBusqueda(comp.nombre, this.componentSearchQuery) && !coincideBusqueda(nombreMolde, this.componentSearchQuery)) continue;
+      const clave = comp.moldeMateriaPrimaId ? `molde-${comp.moldeMateriaPrimaId}` : 'sin-molde';
+      if (!grupos.has(clave)) grupos.set(clave, { molde: comp.moldeMateriaPrima || null, componentes: [] });
+      grupos.get(clave)!.componentes.push(comp);
+    }
+    return Array.from(grupos.values()).sort((a, b) => Number(Boolean(a.molde)) - Number(Boolean(b.molde)));
   }
 
   get filteredCatalogo(): any[] {
@@ -915,6 +1019,7 @@ export class FabricacionComponent implements OnInit {
 
   // Component modal handling
   openCompModal(comp: any = null): void {
+    this.reiniciarGrupo();
     if (comp) {
       this.editingComp = comp;
       // Extract recipe items
@@ -924,6 +1029,7 @@ export class FabricacionComponent implements OnInit {
       }));
       this.compForm = {
         nombre: comp.nombre,
+        moldeMateriaPrimaId: comp.moldeMateriaPrimaId ?? null,
         imagenUrl: comp.imagenUrl || '',
         stockDisponible: comp.stockDisponible,
         receta: recipeRows
@@ -973,6 +1079,7 @@ export class FabricacionComponent implements OnInit {
       this.useMold = true;
       this.compForm = {
         nombre: '',
+        moldeMateriaPrimaId: null,
         imagenUrl: '',
         stockDisponible: 0,
         receta: []
@@ -999,6 +1106,11 @@ export class FabricacionComponent implements OnInit {
     this.editingComp = null;
   }
 
+  private reiniciarGrupo(): void {
+    this.crearGrupo = false;
+    this.grupoForm = { ceraApfId: 0, ceraMoldeId: 0, pabiloId: 0, apfConPabilo: false, apfSinPabilo: false, moldeConPabilo: false, moldeSinPabilo: false };
+  }
+
   addRecipeRow(): void {
     this.compForm.receta.push({ materiaPrimaId: 0, cantidadNecesaria: 0 });
   }
@@ -1017,6 +1129,7 @@ export class FabricacionComponent implements OnInit {
       }));
     const payload = {
       nombre: this.compForm.nombre,
+      moldeMateriaPrimaId: this.compForm.moldeMateriaPrimaId,
       imagenUrl: this.compForm.imagenUrl,
       stockDisponible: this.compForm.stockDisponible,
       receta: validRecipe,
@@ -1024,6 +1137,11 @@ export class FabricacionComponent implements OnInit {
       tipoVela: this.useMold ? this.moldParams.tipoVela : null,
       porcentajeEsencia: this.useMold ? this.moldParams.porcentajeEsencia : null
     };
+
+    if (this.crearGrupo) {
+      this.crearConfiguraciones(payload);
+      return;
+    }
 
     const url = 'http://localhost:3000/api/componente-base';
     if (this.editingComp && this.editingComp.id) {
@@ -1043,6 +1161,43 @@ export class FabricacionComponent implements OnInit {
         error: (err) => alert(err.error?.message || 'Error al crear')
       });
     }
+  }
+
+  private crearConfiguraciones(base: any): void {
+    const seleccionadas = this.opcionesGrupo.filter(opcion => this.grupoForm[opcion.clave]);
+    if (!seleccionadas.length) { alert('Selecciona al menos una configuración.'); return; }
+    if (!base.moldeMateriaPrimaId) { alert('Selecciona un molde para agrupar las configuraciones.'); return; }
+    if (!this.useMold || !this.moldParams.esenciaId) { alert('Completa la formulación del molde y selecciona una esencia predeterminada.'); return; }
+    const componentes = seleccionadas.map(opcion => {
+      const ceraId = opcion.cera === 'apf' ? Number(this.grupoForm.ceraApfId) : Number(this.grupoForm.ceraMoldeId);
+      const pabiloId = opcion.pabilo ? Number(this.grupoForm.pabiloId) : 0;
+      if (!ceraId || (opcion.pabilo && !pabiloId)) return null;
+      return { ...base, nombre: `${base.nombre} · ${opcion.etiqueta}`, receta: this.recetaParaConfiguracion(ceraId, pabiloId) };
+    });
+    if (componentes.some(c => !c)) { alert('Selecciona las ceras requeridas y el pábilo para las combinaciones marcadas.'); return; }
+    this.http.post('http://localhost:3000/api/componente-base/grupo', { componentes }).subscribe({
+      next: () => { this.loadData(); this.reiniciarGrupo(); this.closeCompModal(); },
+      error: err => alert(err.error?.message || 'No se pudieron crear todas las configuraciones.')
+    });
+  }
+
+  private recetaParaConfiguracion(ceraId: number, pabiloId: number): { materiaPrimaId: number; cantidadNecesaria: number }[] {
+    const ceraInicial = (Number(this.moldParams.pesoAgua) || 0) * 0.9;
+    const esencia = ceraInicial * ((Number(this.moldParams.porcentajeEsencia) || 0) / 100);
+    const usaAditivo = this.moldParams.tipoVela === 'DECORATIVA' && Number(this.moldParams.aditivoId) > 0;
+    const aditivo = usaAditivo ? ceraInicial * 0.03 : 0;
+    const receta = [
+      { materiaPrimaId: ceraId, cantidadNecesaria: Number((ceraInicial - esencia - aditivo).toFixed(2)) },
+      { materiaPrimaId: Number(this.moldParams.esenciaId), cantidadNecesaria: Number(esencia.toFixed(2)) },
+    ];
+    if (usaAditivo) receta.push({ materiaPrimaId: Number(this.moldParams.aditivoId), cantidadNecesaria: Number(aditivo.toFixed(2)) });
+    if (this.moldParams.tipoVela === 'AROMATICA' && Number(this.moldParams.envaseId) > 0) receta.push({ materiaPrimaId: Number(this.moldParams.envaseId), cantidadNecesaria: 1 });
+    if (pabiloId > 0) {
+      const pabilo = this.materias.find(m => Number(m.id) === pabiloId);
+      const cantidad = pabilo?.unidadMedida === 'METROS' ? (Number(this.moldParams.cantidadPabilos) * Number(this.moldParams.largoPabiloCm)) / 100 : Number(this.moldParams.cantidadPabilos) * Number(this.moldParams.largoPabiloCm);
+      receta.push({ materiaPrimaId: pabiloId, cantidadNecesaria: Number(cantidad.toFixed(2)) });
+    }
+    return receta;
   }
 
   deleteComp(id: number): void {

@@ -29,6 +29,7 @@ model MateriaPrima {
   variantesEsencia ComponenteVariante[]
   recetas       RecetaComponente[]
   ensamblesDirectos EstructuraEnsambleMateriaPrima[]
+  componentesComoMolde ComponenteBase[] @relation("MoldeComponenteBase")
 }
 
 model ComponenteBase {
@@ -40,6 +41,8 @@ model ComponenteBase {
   tipoVela        String?
   porcentajeEsencia Float?
   imagenUrl       String?
+  moldeMateriaPrimaId Int?
+  moldeMateriaPrima MateriaPrima? @relation("MoldeComponenteBase", fields: [moldeMateriaPrimaId], references: [id], onDelete: SetNull)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   variantes       ComponenteVariante[]

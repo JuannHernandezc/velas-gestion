@@ -2,6 +2,7 @@ import { CreateVarianteDto, FabricarVarianteDto } from './dto/variante.dto';
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request, ParseIntPipe } from '@nestjs/common';
 import { ComponenteBaseService } from './componente-base.service';
 import { CreateComponenteBaseDto } from './dto/create-componente-base.dto';
+import { CreateGrupoComponentesDto } from './dto/create-grupo-componentes.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -22,6 +23,12 @@ export class ComponenteBaseController {
   }
 
   @Roles('ADMIN')
+  @Post('grupo')
+  async createGrupo(@Body() dto: CreateGrupoComponentesDto) {
+    return this.service.createGrupo(dto.componentes);
+  }
+
+  @Roles('ADMIN')
   @Post()
   async create(@Body() dto: CreateComponenteBaseDto) {
     return this.service.create(dto);
@@ -37,6 +44,12 @@ export class ComponenteBaseController {
   @Post(':id/variantes')
   addVariante(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateVarianteDto) {
     return this.service.addVariante(id, dto.esenciaId);
+  }
+
+  @Roles('ADMIN')
+  @Delete(':id/variantes/:varianteId')
+  removeVariante(@Param('id', ParseIntPipe) id: number, @Param('varianteId', ParseIntPipe) varianteId: number) {
+    return this.service.removeVariante(id, varianteId);
   }
 
   @Roles('ADMIN')

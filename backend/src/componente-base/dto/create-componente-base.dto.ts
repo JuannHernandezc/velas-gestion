@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, Min, IsArray, ValidateNested, IsOptional, IsIn, Max } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsInt, Min, IsArray, ValidateNested, IsOptional, IsIn, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class RecetaItemDto {
@@ -46,4 +46,10 @@ export class CreateComponenteBaseDto {
   @IsOptional()
   @IsString()
   imagenUrl?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  moldeMateriaPrimaId?: number;
 }
