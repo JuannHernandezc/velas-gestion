@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
-import { coincideBusqueda } from '../../utils/search.utils';
+import { coincideBusqueda, normalizarBusqueda } from '../../utils/search.utils';
 
 @Component({
   selector: 'app-fabricacion',
@@ -378,7 +378,7 @@ import { coincideBusqueda } from '../../utils/search.utils';
                   {{ opcion.etiqueta }}
                 </label>
               </div>
-              <p class="text-[10px] text-stone-500">La esencia elegida en el formulario se usa como esencia predeterminada inicial en cada configuración creada.</p>
+              <p class="text-[10px] text-stone-500">La esencia elegida en el formulario se usa como esencia predeterminada inicial. Las configuraciones APF incluyen Vybar al 3%; las de cera de molde no incluyen aditivo.</p>
             </div>
 
             <!-- Mold Assistant Panel -->
@@ -1168,11 +1168,15 @@ export class FabricacionComponent implements OnInit {
     if (!seleccionadas.length) { alert('Selecciona al menos una configuración.'); return; }
     if (!base.moldeMateriaPrimaId) { alert('Selecciona un molde para agrupar las configuraciones.'); return; }
     if (!this.useMold || !this.moldParams.esenciaId) { alert('Completa la formulación del molde y selecciona una esencia predeterminada.'); return; }
+    const requiereVybar = seleccionadas.some(opcion => opcion.cera === 'apf');
+    const vybar = requiereVybar ? this.obtenerVybar() : null;
+    if (requiereVybar && !vybar) { alert('Registra una materia prima de tipo ADITIVO con "Vybar" en el nombre para crear configuraciones con cera APF.'); return; }
     const componentes = seleccionadas.map(opcion => {
       const ceraId = opcion.cera === 'apf' ? Number(this.grupoForm.ceraApfId) : Number(this.grupoForm.ceraMoldeId);
       const pabiloId = opcion.pabilo ? Number(this.grupoForm.pabiloId) : 0;
       if (!ceraId || (opcion.pabilo && !pabiloId)) return null;
-      return { ...base, nombre: `${base.nombre} · ${opcion.etiqueta}`, receta: this.recetaParaConfiguracion(ceraId, pabiloId) };
+      const vybarId = opcion.cera === 'apf' ? Number(vybar!.id) : 0;
+      return { ...base, nombre: `${base.nombre} · ${opcion.etiqueta}`, receta: this.recetaParaConfiguracion(ceraId, pabiloId, vybarId) };
     });
     if (componentes.some(c => !c)) { alert('Selecciona las ceras requeridas y el pábilo para las combinaciones marcadas.'); return; }
     this.http.post('http://localhost:3000/api/componente-base/grupo', { componentes }).subscribe({
@@ -1181,16 +1185,20 @@ export class FabricacionComponent implements OnInit {
     });
   }
 
-  private recetaParaConfiguracion(ceraId: number, pabiloId: number): { materiaPrimaId: number; cantidadNecesaria: number }[] {
+  private obtenerVybar(): any | undefined {
+    return this.getMateriasByType('ADITIVO').find(m => normalizarBusqueda(m.nombre).includes('vybar'));
+  }
+
+  private recetaParaConfiguracion(ceraId: number, pabiloId: number, vybarId: number): { materiaPrimaId: number; cantidadNecesaria: number }[] {
     const ceraInicial = (Number(this.moldParams.pesoAgua) || 0) * 0.9;
     const esencia = ceraInicial * ((Number(this.moldParams.porcentajeEsencia) || 0) / 100);
-    const usaAditivo = this.moldParams.tipoVela === 'DECORATIVA' && Number(this.moldParams.aditivoId) > 0;
+    const usaAditivo = vybarId > 0;
     const aditivo = usaAditivo ? ceraInicial * 0.03 : 0;
     const receta = [
       { materiaPrimaId: ceraId, cantidadNecesaria: Number((ceraInicial - esencia - aditivo).toFixed(2)) },
       { materiaPrimaId: Number(this.moldParams.esenciaId), cantidadNecesaria: Number(esencia.toFixed(2)) },
     ];
-    if (usaAditivo) receta.push({ materiaPrimaId: Number(this.moldParams.aditivoId), cantidadNecesaria: Number(aditivo.toFixed(2)) });
+    if (usaAditivo) receta.push({ materiaPrimaId: vybarId, cantidadNecesaria: Number(aditivo.toFixed(2)) });
     if (this.moldParams.tipoVela === 'AROMATICA' && Number(this.moldParams.envaseId) > 0) receta.push({ materiaPrimaId: Number(this.moldParams.envaseId), cantidadNecesaria: 1 });
     if (pabiloId > 0) {
       const pabilo = this.materias.find(m => Number(m.id) === pabiloId);
